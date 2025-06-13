@@ -1,0 +1,23 @@
+{
+  "name": "mail-to-chat",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Mail to Chat — verwandelt E-Mail-Threads in eine Chat-Ansicht. 100% lokal.",
+  "workspaces": [
+    "packages/core",
+    "packages/ui",
+    "packages/adapters/gmail",
+    "apps/chrome-ext"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "build": "node apps/chrome-ext/build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "happy-dom": "^20.10.2",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0"
+  }
+}

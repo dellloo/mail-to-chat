@@ -1,0 +1,10 @@
+{
+  "name": "@chatmail/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "devDependencies": {
+    "jsdom": "^25.0.0"
+  }
+}
