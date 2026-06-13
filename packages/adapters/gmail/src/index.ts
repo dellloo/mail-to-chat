@@ -1,5 +1,5 @@
 import { parseThread, type Attachment, type MessageObject, type Sender } from '@chatmail/core';
-import { createChatView, type ChatSettings } from '@chatmail/ui';
+import { createChatView, ICONS, type ChatSettings } from '@chatmail/ui';
 import { applySkin, updateSkinPageClass } from './skin';
 
 export { applySkin, buildSkinCss } from './skin';
@@ -704,8 +704,53 @@ async function activate(deps: AdapterDeps): Promise<boolean> {
   return true;
 }
 
-// Button wurde in v1.0.9 entfernt. Chat-View wird automatisch aktiviert wenn
-// autoActivate=true (steuerbar über die Extension-Einstellungsseite).
+const GEAR_ID = 'chatmail-settings-btn';
+
+/**
+ * Kleiner Einstellungs-Button in Gmails Toolbar.
+ * Kein Toggle mehr — nur schneller Zugriff auf die Settings-Seite.
+ * Wird nur angezeigt wenn ein Mail-Thread offen ist.
+ */
+function injectSettingsButton(deps: AdapterDeps): void {
+  if (!deps.openSettings) return;
+  const toolbar = Array.from(document.querySelectorAll<HTMLElement>('div[gh="mtb"]')).find(isVisible);
+  let gear = document.getElementById(GEAR_ID) as HTMLButtonElement | null;
+  if (!toolbar) {
+    if (gear) gear.style.display = 'none';
+    return;
+  }
+  const hasMail = !!findThreadHeader();
+  if (!gear) {
+    if (getComputedStyle(toolbar).position === 'static') toolbar.style.position = 'relative';
+    gear = document.createElement('button');
+    gear.id = GEAR_ID;
+    gear.type = 'button';
+    gear.title = 'Mail to Chat – Einstellungen';
+    gear.innerHTML = ICONS.gear;
+    gear.style.cssText = [
+      'position:absolute', 'top:50%', 'transform:translateY(-50%)',
+      'right:12px', 'z-index:9',
+      'width:28px', 'height:28px', 'border-radius:50%', 'border:none',
+      'background:rgba(128,128,128,0.14)', 'color:inherit', 'font-size:14px',
+      'cursor:pointer', 'display:inline-flex', 'align-items:center',
+      'justify-content:center', 'flex-shrink:0',
+      'transition:background 0.15s,transform 0.15s',
+      'opacity:0.7',
+    ].join(';');
+    gear.addEventListener('mouseenter', () => {
+      gear!.style.background = 'rgba(128,128,128,0.28)';
+      gear!.style.opacity = '1';
+    });
+    gear.addEventListener('mouseleave', () => {
+      gear!.style.background = 'rgba(128,128,128,0.14)';
+      gear!.style.opacity = '0.7';
+    });
+    gear.addEventListener('click', () => deps.openSettings?.());
+    toolbar.appendChild(gear);
+  }
+  if (gear.parentElement !== toolbar) toolbar.appendChild(gear);
+  gear.style.display = hasMail ? 'inline-flex' : 'none';
+}
 
 
 /** Einstieg: beobachtet Gmail (SPA) und verdrahtet Button + Shortcut. */
@@ -779,6 +824,7 @@ export function initGmailAdapter(deps: AdapterDeps): void {
       lastThreadKey = key;
       deactivate();
     }
+    injectSettingsButton(deps); // Zahnrad in Toolbar (nur bei offenem Thread sichtbar)
     if (!header) return;
 
     // Self-Healing: Gmail (v. a. im Lesebereich-Modus) tauscht den Thread-DOM aus -
@@ -873,8 +919,9 @@ export function initGmailAdapter(deps: AdapterDeps): void {
   // (v1.0.0-v1.0.8 hatte noch Toolbar-Buttons; die IDs hier als Strings damit
   //  keine Compile-Abhängigkeit auf entfernte Konstanten entsteht)
   for (const id of [
-    'chatmail-tb-group', 'chatmail-toggle-tb', 'chatmail-settings-btn',
+    'chatmail-tb-group', 'chatmail-toggle-tb',
     'chatmail-toggle-btn', 'chatmail-reply-ctx',
+    GEAR_ID, // Zahnrad aus alten Instanzen entfernen, frisch setzen
   ]) {
     const orphan = document.getElementById(id);
     if (orphan) {
