@@ -26,7 +26,7 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
     identityHint: 'Wird sonst automatisch aus Gmail erkannt. Bestimmt, welche Bubbles rechts (deine) stehen.',
     optSig: 'Signaturen einklappen', optAtts: 'Anhänge-Galerie anzeigen',
     optDates: 'Datums-Trenner („Heute", „Gestern")',
-    behaviorHint: 'Der Chat-Modus selbst wird direkt in Gmail geschaltet: Der gelbe Button über jeder Mail gilt dauerhaft für alle Mails - einmal an, immer an (bis du ihn wieder ausschaltest).',
+    behaviorHint: 'Wenn aktiv: jede E-Mail wird automatisch als Chat-Ansicht geöffnet – ohne Ausnahme. Hier kannst du den Chat-Modus dauerhaft an- oder abschalten.',
     skinEnable: 'Komplette Gmail-Oberfläche umgestalten', skinPresets: 'Empfohlene Designs (stylen Gmail UND Chat)',
     skinAccent: 'Akzentfarbe', skinBg: 'Hintergrund', skinSurface: 'Flächen/Listen', skinText: 'Textfarbe',
     skinRadius: 'Eckenrundung', skinFont: 'Schriftart', skinFontDefault: 'Gmail-Standard', skinCompact: 'Kompakte Dichte',
@@ -37,7 +37,7 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
     tipBody: 'Mail-Liste und offene Mail nebeneinander (wie in Thunderbird) ist eine <strong>native Gmail-Funktion</strong> und funktioniert perfekt mit der Chat-Ansicht:<br><br>In Gmail: <strong>Zahnrad-Symbol (oben rechts) → „Lesebereich" → „Rechts neben dem Posteingang"</strong>',
     bmcText: 'Hey, ich bin Dello :) Ich baue Mail to Chat ganz alleine in meiner Freizeit – ohne Werbung, ohne Tracking, ohne Abo. Wenn dieses Tool deinen Mail-Alltag ein Stück schöner und übersichtlicher macht, freue ich mich riesig über einen Kaffee :)<br><strong>Versprochen: Alle Funktionen bleiben für immer kostenlos.</strong>',
     bmcBtn: `${ICONS.coffee} Spendier mir einen Kaffee`,
-    footer: 'Mail to Chat v1.0.8 · Alle Daten bleiben auf deinem Gerät · Open Source',
+    footer: 'Mail to Chat v1.0.9 · Alle Daten bleiben auf deinem Gerät · Open Source',
   },
   en: {
     tagline: 'Your mail. Your pace. No chaos.', badge: '100% LOCAL',
@@ -51,7 +51,7 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
     identityHint: 'Otherwise detected automatically from Gmail. Determines which bubbles appear on the right (yours).',
     optSig: 'Collapse signatures', optAtts: 'Show attachment gallery',
     optDates: 'Date separators ("Today", "Yesterday")',
-    behaviorHint: 'Chat mode itself is toggled directly in Gmail: the yellow button above any mail applies permanently to all mails - once on, always on (until you switch it off).',
+    behaviorHint: 'When active: every email opens automatically in chat view – without exception. Toggle chat mode permanently on or off here.',
     skinEnable: 'Restyle the entire Gmail interface', skinPresets: 'Recommended designs (style Gmail AND chat)',
     skinAccent: 'Accent color', skinBg: 'Background', skinSurface: 'Surfaces/lists', skinText: 'Text color',
     skinRadius: 'Corner radius', skinFont: 'Font', skinFontDefault: 'Gmail default', skinCompact: 'Compact density',
@@ -62,7 +62,7 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
     tipBody: 'Mail list and open mail side by side (like Thunderbird) is a <strong>native Gmail feature</strong> and works perfectly with the chat view:<br><br>In Gmail: <strong>gear icon (top right) → "Reading pane" → "Right of inbox"</strong>',
     bmcText: "Hey, I'm Dello :) I build Mail to Chat all by myself in my free time - no ads, no tracking, no subscription. If this tool makes your daily email routine a bit nicer and clearer, I'd be absolutely thrilled to receive a coffee :)<br><strong>Promised: All features will remain free forever.</strong>",
     bmcBtn: `${ICONS.coffee} Buy me a coffee`,
-    footer: 'Mail to Chat v1.0.8 · All data stays on your device · Open source',
+    footer: 'Mail to Chat v1.0.9 · All data stays on your device · Open source',
   },
 };
 

@@ -1,5 +1,5 @@
 import { parseThread, type Attachment, type MessageObject, type Sender } from '@chatmail/core';
-import { createChatView, ICONS, type ChatSettings } from '@chatmail/ui';
+import { createChatView, type ChatSettings } from '@chatmail/ui';
 import { applySkin, updateSkinPageClass } from './skin';
 
 export { applySkin, buildSkinCss } from './skin';
@@ -20,9 +20,9 @@ export { applySkin, buildSkinCss } from './skin';
 export interface AdapterDeps {
   getSettings: () => Promise<ChatSettings>;
   onSettingsChanged: (cb: () => void) => void;
-  /** Öffnet die Options Page der Extension (via Background Worker). */
+  /** Öffnet die Options Page der Extension (via Background Worker). Nicht mehr in Gmail injiziert, aber für externe Aufrufer verfügbar. */
   openSettings?: () => void;
-  /** Persistiert den Chat-Modus global (Button = harter Schalter für alle Mails). */
+  /** @deprecated Wird seit v1.0.9 nicht mehr intern genutzt – Chat-Mode nur noch über Storage (autoActivate). */
   setAutoActivate?: (on: boolean) => void;
 }
 
@@ -32,7 +32,6 @@ function log(...args: unknown[]): void {
   console.log('[Mail to Chat]', ...args);
 }
 
-const BTN_ID = 'chatmail-toggle-btn';
 const HOST_CLASS = 'chatmail-host';
 
 const LABELS = {
@@ -455,12 +454,6 @@ function findListContainer(): HTMLElement | null {
 /** Flag: wir senden gerade selbst - Auto-Deactivate darf nicht greifen. */
 let sendingViaChat = false;
 
-/**
- * Sofort wirksamer Modus-Override für diese Session: Der Button-Klick gilt
- * SOFORT (kein Storage-Race, funktioniert auch bei totem Extension-Kontext).
- * null = Storage ist die Quelle der Wahrheit.
- */
-let sessionMode: boolean | null = null;
 // Verhindert Doppel-Aktivierung: check() prueft dieses Flag, bevor es activate() ruft.
 // Ohne Guard loest die DOM-Mutation aus activate() via MutationObserver einen
 // zweiten activate()-Aufruf aus, waehrend der erste noch laeuft.
@@ -711,154 +704,8 @@ async function activate(deps: AdapterDeps): Promise<boolean> {
   return true;
 }
 
-/**
- * Button = HARTER globaler Schalter: einmal Chat-Ansicht an → gilt persistent
- * für alle Mails (bis wieder ausgeschaltet). "Antworten"/Aa wechseln nur
- * temporär zum Editor; danach kehrt die Chat-Ansicht automatisch zurück.
- */
-async function toggle(deps: AdapterDeps): Promise<void> {
-  // Anti-Spam-Guard: wenn Aktivierung läuft, Klick ignorieren.
-  if (activating) {
-    log('Toggle ignoriert: Aktivierung läuft noch.');
-    return;
-  }
-  try {
-    log('Toggle geklickt. Aktiv bisher:', state.active);
-    if (state.active) {
-      deactivate();
-      sessionMode = false;
-      deps.setAutoActivate?.(false);
-    } else {
-      activating = true;
-      // Visuelles Feedback: Button während Aktivierung gedimmt + gesperrt
-      const tb = document.getElementById(TB_ID);
-      if (tb) { tb.style.opacity = '0.55'; tb.style.pointerEvents = 'none'; }
-      try {
-        const ok = await activate(deps);
-        // KEIN waitFor-Blocking mehr: statt 3s blockieren, sessionMode=true setzen
-        // → MutationObserver/check() übernimmt den Retry sobald Gmail bereit ist.
-        sessionMode = true;
-        deps.setAutoActivate?.(true);
-        if (!ok) {
-          log('Aktivierung fehlgeschlagen (noch keine Nachrichten) – check() übernimmt Retry.');
-        }
-      } finally {
-        activating = false;
-        const tb2 = document.getElementById(TB_ID);
-        if (tb2) { tb2.style.opacity = ''; tb2.style.pointerEvents = ''; }
-      }
-    }
-    await updateButtonLabel(deps);
-  } catch (err) {
-    console.error('[Mail to Chat] Toggle fehlgeschlagen:', err);
-    activating = false; // Sicherheitsnetz: Flag auch bei unerwarteten Fehlern freigeben
-  }
-}
-
-async function updateButtonLabel(deps: AdapterDeps): Promise<void> {
-  const settings = await deps.getSettings();
-  const labels = LABELS[settings.uiLanguage] ?? LABELS.de;
-  const html = state.active
-    ? `${ICONS.mail}<span>${labels.toClassic}</span>`
-    : `${ICONS.chat}<span>${labels.toChat}</span>`;
-  const tb = document.getElementById(TB_ID);
-  if (tb) tb.innerHTML = html;
-}
-
-const GEAR_ID = 'chatmail-settings-btn';
-const TB_ID = 'chatmail-toggle-tb';
-// Wrapper-Div, das Toggle + Gear buendelt - nur dieser wird absolut in der Leiste verankert
-const GROUP_ID = 'chatmail-tb-group';
-
-/**
- * Berechnet die linke Position der Gruppe: rechts neben Gmails Icon-Gruppe.
- * WARUM absolut: Ein Fluss-Element bricht im Lesebereich in eine neue Zeile
- * und landet ueber der Mail-Liste, wo Gmails Overlay alle Klicks abfaengt.
- */
-function positionGroup(group: HTMLElement, toolbar: HTMLElement): void {
-  const firstChild = toolbar.firstElementChild as HTMLElement | null;
-  const base = toolbar.getBoundingClientRect();
-  const anchor = firstChild?.getBoundingClientRect();
-  const left = anchor && anchor.width > 0 ? anchor.right - base.left + 12 : 8;
-  group.style.left = `${Math.max(8, Math.round(left))}px`;
-}
-
-/**
- * Einziger Toggle: in Gmails oberer Aktionsleiste (div[gh="mtb"]).
- * Toggle-Pill + Einstellungs-Zahnrad sind in einem absolut verankerten
- * Wrapper-Div zusammengefasst, damit sie nie in eine neue Zeile brechen.
- */
-function injectToolbarButton(deps: AdapterDeps): void {
-  const hasMail = !!findThreadHeader();
-  const toolbar = Array.from(document.querySelectorAll<HTMLElement>('div[gh="mtb"]')).find(isVisible);
-  let grp = document.getElementById(GROUP_ID);
-  if (!toolbar) {
-    if (grp) grp.style.display = 'none';
-    return;
-  }
-  if (getComputedStyle(toolbar).position === 'static') toolbar.style.position = 'relative';
-  if (!grp) {
-    // Wrapper
-    grp = document.createElement('div');
-    grp.id = GROUP_ID;
-    grp.style.cssText = [
-      'position:absolute', 'top:50%', 'transform:translateY(-50%)', 'z-index:9',
-      'display:inline-flex', 'align-items:center', 'gap:6px', 'display:none',
-    ].join(';');
-    // Toggle-Pill
-    const btn = document.createElement('button');
-    btn.id = TB_ID;
-    btn.type = 'button';
-    btn.style.cssText = [
-      'margin:0', 'padding:5px 14px', 'border-radius:999px',
-      'border:none', 'background:#f2c200', 'color:#1a1a1a', 'display:inline-flex',
-      'align-items:center', 'gap:6px', 'font-size:12.5px', 'font-weight:700',
-      'font-family:inherit', 'cursor:pointer', 'white-space:nowrap',
-      'box-shadow:0 1px 2px rgba(0,0,0,0.2)', 'transition:background 0.15s,transform 0.1s,box-shadow 0.1s',
-    ].join(';');
-    btn.addEventListener('mouseenter', () => {
-      btn.style.background = '#ffd333';
-      btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.25)';
-    });
-    btn.addEventListener('mouseleave', () => {
-      btn.style.background = '#f2c200';
-      btn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
-      btn.style.transform = 'translateY(0) scale(1)';
-    });
-    btn.addEventListener('mousedown', () => {
-      btn.style.transform = 'scale(0.91)';
-      btn.style.boxShadow = '0 0 0 rgba(0,0,0,0)';
-    });
-    btn.addEventListener('mouseup', () => {
-      btn.style.transform = 'scale(1)';
-    });
-    btn.addEventListener('click', () => void toggle(deps));
-    grp.appendChild(btn);
-    // Einstellungs-Zahnrad (nur wenn openSettings vorhanden)
-    if (deps.openSettings) {
-      const gear = document.createElement('button');
-      gear.id = GEAR_ID;
-      gear.type = 'button';
-      gear.title = 'Mail to Chat - Einstellungen';
-      gear.innerHTML = ICONS.gear;
-      gear.style.cssText = [
-        'width:28px', 'height:28px', 'border-radius:50%', 'border:none',
-        'background:rgba(128,128,128,0.16)', 'color:inherit', 'font-size:14px',
-        'cursor:pointer', 'display:inline-flex', 'align-items:center',
-        'justify-content:center', 'flex-shrink:0', 'transition:background 0.15s',
-      ].join(';');
-      gear.addEventListener('mouseenter', () => (gear.style.background = 'rgba(128,128,128,0.28)'));
-      gear.addEventListener('mouseleave', () => (gear.style.background = 'rgba(128,128,128,0.16)'));
-      gear.addEventListener('click', () => deps.openSettings?.());
-      grp.appendChild(gear);
-    }
-    void updateButtonLabel(deps);
-  }
-  // Gmail tauscht die Leiste je nach Ansicht aus -> Gruppe umziehen wenn noetig
-  if (grp.parentElement !== toolbar) toolbar.appendChild(grp);
-  grp.style.display = hasMail ? 'inline-flex' : 'none';
-  if (hasMail) positionGroup(grp, toolbar);
-}
+// Button wurde in v1.0.9 entfernt. Chat-View wird automatisch aktiviert wenn
+// autoActivate=true (steuerbar über die Extension-Einstellungsseite).
 
 
 /** Einstieg: beobachtet Gmail (SPA) und verdrahtet Button + Shortcut. */
@@ -928,50 +775,44 @@ export function initGmailAdapter(deps: AdapterDeps): void {
     const header = findThreadHeader();
     const key = header?.textContent ?? '';
     if (key !== lastThreadKey) {
-      // Threadwechsel: alten Zustand verwerfen (Toolbar-Gruppe bleibt, Chat-View weg)
+      // Threadwechsel: Chat-View des alten Threads verwerfen
       lastThreadKey = key;
       deactivate();
     }
-    injectToolbarButton(deps); // Leisten-Toggle in allen Ansichten (Inbox, Suche, Spam, ...)
-    if (header) {
-      // Self-Healing: Gmail (v. a. im Lesebereich-Modus) tauscht den Thread-DOM aus -
-      // haengen Host oder Liste nicht mehr im Dokument, ist der Zustand kaputt -> reset.
-      if (state.active && (!state.host?.isConnected || !state.hiddenList?.isConnected)) {
-        deactivate();
+    if (!header) return;
+
+    // Self-Healing: Gmail (v. a. im Lesebereich-Modus) tauscht den Thread-DOM aus -
+    // haengen Host oder Liste nicht mehr im Dokument, ist der Zustand kaputt -> reset.
+    if (state.active && (!state.host?.isConnected || !state.hiddenList?.isConnected)) {
+      deactivate();
+    }
+
+    // Compose-Mode: Editor offen -> unter der Chat-Ansicht einblenden
+    // (Chat bleibt oben). Editor zu -> Liste wieder verstecken + Chat
+    // aktualisieren (gesendete Antwort einlesen).
+    if (state.active && !sendingViaChat) {
+      const hasCompose = !!findComposeBody();
+      if (hasCompose) {
+        setComposeMode(true); // bei jedem Zyklus re-anwenden (Gmail mutiert den DOM)
+      } else if (state.composeMode) {
+        setComposeMode(false);
+        await activate(deps);
+        return;
       }
-      // Compose-Mode: Editor offen -> unter der Chat-Ansicht einblenden
-      // (Chat bleibt oben). Editor zu -> Liste wieder verstecken + Chat
-      // aktualisieren (gesendete Antwort einlesen).
-      if (state.active && !sendingViaChat) {
-        const hasCompose = !!findComposeBody();
-        if (hasCompose) {
-          setComposeMode(true); // bei jedem Zyklus re-anwenden (Gmail mutiert den DOM)
-        } else if (state.composeMode) {
-          setComposeMode(false);
+    }
+
+    // Auto-Aktivierung: immer Chat-View wenn autoActivate aktiv.
+    // Kein sessionMode-Override mehr - Storage ist die einzige Quelle der Wahrheit.
+    if (!state.active && !activating) {
+      const settings = await deps.getSettings();
+      // Doppelte Absicherung nach dem await (state/activating koennten sich geaendert haben)
+      if (!state.active && !activating && settings.autoActivate && !findComposeBody()) {
+        activating = true;
+        try {
           await activate(deps);
-          return;
+        } finally {
+          activating = false;
         }
-      }
-      if (!state.active) {
-        const settings = await deps.getSettings();
-        // Chat-Modus: Session-Override (Button-Klick) schlaegt Storage -
-        // greift sofort und auch bei totem Extension-Kontext.
-        const mode = sessionMode ?? settings.autoActivate;
-        // Doppelte Absicherung nach dem await:
-        //   (a) !state.active  - toggle() koennte inzwischen aktiviert haben
-        //   (b) !activating    - toggle().activate() laeuft noch
-        // Ohne beides: doppelte Aktivierung (Race mit dem MutationObserver-Zyklus).
-        if (!state.active && !activating && mode && !findComposeBody()) {
-          // activating-Flag auch hier setzen: verhindert Race mit toggle(),
-          // falls der Nutzer genau waehrend check()'s activate() klickt.
-          activating = true;
-          try {
-            await activate(deps);
-          } finally {
-            activating = false;
-          }
-        }
-        await updateButtonLabel(deps);
       }
     }
   };
@@ -980,23 +821,21 @@ export function initGmailAdapter(deps: AdapterDeps): void {
   const observer = new MutationObserver(scheduleCheck);
   observer.observe(document.body, { childList: true, subtree: true });
 
-  // Keyboard-Shortcut Alt+C
-  document.addEventListener('keydown', (e) => {
-    if (e.altKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyC') {
-      e.preventDefault();
-      void toggle(deps);
-    }
-  });
-
-  // Bei Settings-Änderung aktive Ansicht neu rendern + Skin aktualisieren.
-  // Storage-Event = ein Write ist gelandet → Storage ist wieder Quelle der Wahrheit.
+  // Bei Settings-Änderung: Skin aktualisieren + Chat-View reagieren.
+  // autoActivate=false → sofort deaktivieren.
+  // autoActivate=true  → check() übernimmt Aktivierung beim nächsten Tick.
   deps.onSettingsChanged(() => {
-    sessionMode = null;
-    void deps.getSettings().then((s) => applySkin(s));
-    // Nur re-aktivieren wenn wir nicht gerade mitten in toggle()/activate() sind
-    if (state.active && !activating) {
-      void activate(deps).then(() => updateButtonLabel(deps));
-    }
+    void deps.getSettings().then((s) => {
+      applySkin(s);
+      if (!s.autoActivate && state.active) {
+        // Nutzer hat Chat-Mode in den Einstellungen deaktiviert
+        deactivate();
+      } else if (s.autoActivate && state.active && !activating) {
+        // Einstellungen geändert (Theme/Farben) → neu rendern
+        void activate(deps);
+      }
+      // autoActivate=true && !state.active → check() aktiviert automatisch
+    });
   });
 
   // Boot-Diagnose: bestaetigt, dass DIESES Bundle wirklich laeuft
@@ -1030,15 +869,17 @@ export function initGmailAdapter(deps: AdapterDeps): void {
   // (funktioniert browserunabhaengig, auch ohne Log-Sichtbarkeit)
   document.documentElement.dataset['mailToChat'] = version;
 
-  // Selbstreinigung: Beim Add-on-Reload bleiben Buttons der ALTEN (toten)
-  // Script-Instanz im DOM - deren Klick-Listener sind verwaist. Ohne Aufraeumen
-  // wuerde diese Instanz die Injektion ueberspringen (ID existiert ja schon)
-  // und der Nutzer klickt ins Leere. Also: alle Reste entfernen, frisch setzen.
-  for (const id of [BTN_ID, GROUP_ID, TB_ID, GEAR_ID, 'chatmail-reply-ctx']) {
+  // Selbstreinigung: DOM-Reste älterer Instanzen / Versionen entfernen
+  // (v1.0.0-v1.0.8 hatte noch Toolbar-Buttons; die IDs hier als Strings damit
+  //  keine Compile-Abhängigkeit auf entfernte Konstanten entsteht)
+  for (const id of [
+    'chatmail-tb-group', 'chatmail-toggle-tb', 'chatmail-settings-btn',
+    'chatmail-toggle-btn', 'chatmail-reply-ctx',
+  ]) {
     const orphan = document.getElementById(id);
     if (orphan) {
       orphan.remove();
-      log('Verwaisten Button der Vorgaenger-Instanz entfernt:', id);
+      log('Verwaistes Element der Vorgaenger-Instanz entfernt:', id);
     }
   }
   document.querySelectorAll(`.${HOST_CLASS}`).forEach((h) => h.remove());
