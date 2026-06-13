@@ -718,44 +718,40 @@ async function activate(deps: AdapterDeps): Promise<boolean> {
  */
 async function toggle(deps: AdapterDeps): Promise<void> {
   // Anti-Spam-Guard: wenn Aktivierung läuft, Klick ignorieren.
-  // Ohne diesen Guard können rapid clicks mehrere gleichzeitige activate()-Calls starten,
-  // weil state.active noch false ist während der erste async Durchlauf läuft.
   if (activating) {
-    log('Toggle ignoriert: Aktivierung läuft noch (Anti-Spam-Guard).');
+    log('Toggle ignoriert: Aktivierung läuft noch.');
     return;
   }
   try {
-  log('Toggle geklickt. Aktiv bisher:', state.active);
-  if (state.active) {
-    deactivate();
-    sessionMode = false; // greift sofort, unabhängig vom Storage
-    deps.setAutoActivate?.(false);
-  } else {
-    activating = true;
-    try {
-      // Gmail rendert den Mail-Inhalt asynchron. Wenn keine .adn-Elemente
-      // sichtbar sind (erste Aktivierung schlaegt fehl), bis zu 3s warten
-      // und einmal wiederholen - loest das "Button macht nichts"-Problem.
-      let ok = await activate(deps);
-      if (!ok) {
-        log('Erste Aktivierung ohne Nachrichten - warte auf Gmail-Render...');
-        await waitFor(() => (getMessageNodes().length > 0 ? true : null), 3000, 150);
-        ok = await activate(deps);
-      }
-      if (ok) {
+    log('Toggle geklickt. Aktiv bisher:', state.active);
+    if (state.active) {
+      deactivate();
+      sessionMode = false;
+      deps.setAutoActivate?.(false);
+    } else {
+      activating = true;
+      // Visuelles Feedback: Button während Aktivierung gedimmt + gesperrt
+      const tb = document.getElementById(TB_ID);
+      if (tb) { tb.style.opacity = '0.55'; tb.style.pointerEvents = 'none'; }
+      try {
+        const ok = await activate(deps);
+        // KEIN waitFor-Blocking mehr: statt 3s blockieren, sessionMode=true setzen
+        // → MutationObserver/check() übernimmt den Retry sobald Gmail bereit ist.
         sessionMode = true;
         deps.setAutoActivate?.(true);
-      } else {
-        log('Aktivierung abgebrochen: keine Nachrichten nach Wartezeit.');
+        if (!ok) {
+          log('Aktivierung fehlgeschlagen (noch keine Nachrichten) – check() übernimmt Retry.');
+        }
+      } finally {
+        activating = false;
+        const tb2 = document.getElementById(TB_ID);
+        if (tb2) { tb2.style.opacity = ''; tb2.style.pointerEvents = ''; }
       }
-    } finally {
-      // Flag immer zuruecksetzen - auch wenn activate() wirft
-      activating = false;
     }
-  }
-  await updateButtonLabel(deps);
+    await updateButtonLabel(deps);
   } catch (err) {
     console.error('[Mail to Chat] Toggle fehlgeschlagen:', err);
+    activating = false; // Sicherheitsnetz: Flag auch bei unerwarteten Fehlern freigeben
   }
 }
 
@@ -966,7 +962,14 @@ export function initGmailAdapter(deps: AdapterDeps): void {
         //   (b) !activating    - toggle().activate() laeuft noch
         // Ohne beides: doppelte Aktivierung (Race mit dem MutationObserver-Zyklus).
         if (!state.active && !activating && mode && !findComposeBody()) {
-          await activate(deps);
+          // activating-Flag auch hier setzen: verhindert Race mit toggle(),
+          // falls der Nutzer genau waehrend check()'s activate() klickt.
+          activating = true;
+          try {
+            await activate(deps);
+          } finally {
+            activating = false;
+          }
         }
         await updateButtonLabel(deps);
       }
