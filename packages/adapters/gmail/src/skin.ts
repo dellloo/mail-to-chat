@@ -33,47 +33,56 @@ export function buildSkinCss(skin: ChatSettings['gmailSkin']): string {
   // WICHTIG: fill muss auf svg UND alle Kinder (path/rect/circle/g) gesetzt werden,
   // da Gmail presentation-Attribute direkt auf <path> setzt und diese nicht von <svg> erben.
   // CSS fill: !important überschreibt SVG-Präsentations-Attribute in allen modernen Browsern.
-  // Drei Gmail-Icon-Rendering-Techniken:
-  //   1. Icon-Font (Material Symbols): reagiert auf CSS `color`
-  //   2. Inline-SVG: reagiert auf CSS `fill`
-  //   3. CSS-Mask (background-color + mask-image): weder color noch fill helfen.
-  //      Lösung: filter:brightness(0)invert(1) auf dem Icon-Container macht
-  //      JEDE Farbe → schwarz → weiß, egal welche Render-Technik.
-  //      Für weiße Icons (bereits korrekt) gilt: weiß→schwarz→weiß ✓
+  // ICON-FIX STRATEGIE v1.0.5:
+  // Problem: Gmail ändert regelmäßig seine Klassen (.T-I war früher stabil, nicht mehr sicher).
+  // Problem: Icons sitzen 1-3 Ebenen tief in Buttons, direkte Kind-Selektoren greifen nicht.
+  // Lösung:
+  //   - Kein Klassen-Abhängigkeit: statt .T-I → [role="button"] + <button>
+  //   - Chatmail-Buttons ausschließen via id-Attribut (stabil)
+  //   - filter:brightness(0)invert(1) macht JEDE Farbe weiß (transparent bleibt transparent)
+  //   - 3-Ebenen-Tiefe deckt alle bekannten Gmail-Icon-Verschachtelungen ab
+  //   - fill+color zusätzlich für SVG + Icon-Fonts
   const darkMailFix = isDarkColor(bg)
-    ? `/* === Dark-Theme: Gmail-Icons auf dunklem Skin immer sichtbar ===
-          3-Technik-Ansatz: color (Icon-Font) + fill (SVG) + filter (CSS-Mask/BG-Image)
-          Unsere chatmail-Buttons sind KEIN .T-I → nicht betroffen. === */
+    ? `/* === Dark-Theme v1.0.5: Nuclear Icon Fix ===
+          Kein .T-I-Abhängigkeit. [role=button]+button in Toolbars,
+          3 Ebenen tief, chatmail-Buttons via id ausgeschlossen. === */
 
-       /* 1. Toolbar-Buttons: Icon-Font-Icons via color sichtbar machen */
-       html.cm-skin div[gh="mtb"] .T-I:not(.T-I-KE),
-       html.cm-skin .G-atb .T-I:not(.T-I-KE),
-       html.cm-skin .iH .T-I:not(.T-I-KE) { color: ${text} !important; opacity: 1 !important; }
+       /* 1. Toolbar-Buttons: color für Icon-Fonts (die via CSS color rendern) */
+       html.cm-skin div[gh="mtb"] [role="button"]:not([id*="chatmail"]),
+       html.cm-skin div[gh="mtb"] button:not([id*="chatmail"]),
+       html.cm-skin .G-atb [role="button"]:not([id*="chatmail"]) { color: ${text} !important; opacity: 1 !important; }
 
-       /* 2. SVG-Icons: fill-Präsentations-Attribute überschreiben */
-       html.cm-skin div[gh="mtb"] .T-I:not(.T-I-KE) svg,
-       html.cm-skin div[gh="mtb"] .T-I:not(.T-I-KE) svg *,
-       html.cm-skin .G-atb .T-I:not(.T-I-KE) svg,
-       html.cm-skin .G-atb .T-I:not(.T-I-KE) svg * { fill: ${text} !important; color: ${text} !important; }
+       /* 2. SVG fill: Präsentations-Attribute überschreiben */
+       html.cm-skin div[gh="mtb"] [role="button"]:not([id*="chatmail"]) svg,
+       html.cm-skin div[gh="mtb"] [role="button"]:not([id*="chatmail"]) svg *,
+       html.cm-skin div[gh="mtb"] button:not([id*="chatmail"]) svg,
+       html.cm-skin div[gh="mtb"] button:not([id*="chatmail"]) svg *,
+       html.cm-skin .G-atb [role="button"]:not([id*="chatmail"]) svg,
+       html.cm-skin .G-atb [role="button"]:not([id*="chatmail"]) svg * { fill: ${text} !important; color: ${text} !important; }
 
-       /* 3. CSS-Mask/Background-Image Icons: direkter Kind-Container trägt die Farbe.
-          brightness(0)invert(1) → immer weiß, unabhängig von Originalfarbe. */
-       html.cm-skin div[gh="mtb"] .T-I:not(.T-I-KE) > span,
-       html.cm-skin div[gh="mtb"] .T-I:not(.T-I-KE) > div:not(.T-I):not([role="button"]),
-       html.cm-skin .G-atb .T-I:not(.T-I-KE) > span,
-       html.cm-skin .G-atb .T-I:not(.T-I-KE) > div:not(.T-I):not([role="button"]) { filter: brightness(0) invert(1) !important; }
+       /* 3. NUCLEAR FILTER: brightness(0)invert(1) auf 3 Ebenen Tiefe.
+          Wirkt auf CSS-Mask, background-image, inline-SVG und Icon-Fonts.
+          Transparent bleibt transparent (alpha=0 überlebt den Filter). */
+       html.cm-skin div[gh="mtb"] [role="button"]:not([id*="chatmail"]) > *,
+       html.cm-skin div[gh="mtb"] [role="button"]:not([id*="chatmail"]) > * > *,
+       html.cm-skin div[gh="mtb"] [role="button"]:not([id*="chatmail"]) > * > * > *,
+       html.cm-skin div[gh="mtb"] button:not([id*="chatmail"]) > *,
+       html.cm-skin div[gh="mtb"] button:not([id*="chatmail"]) > * > *,
+       html.cm-skin div[gh="mtb"] button:not([id*="chatmail"]) > * > * > *,
+       html.cm-skin .G-atb [role="button"]:not([id*="chatmail"]) > *,
+       html.cm-skin .G-atb [role="button"]:not([id*="chatmail"]) > * > * { filter: brightness(0) invert(1) !important; }
 
-       /* 4. Per-Email-Zeile hover-Icons (.zA rows) */
-       html.cm-skin .zA .T-I:not(.T-I-KE) { color: ${text} !important; }
-       html.cm-skin .zA .T-I:not(.T-I-KE) > span,
-       html.cm-skin .zA .T-I:not(.T-I-KE) > div:not([role]) { filter: brightness(0) invert(1) !important; }
-       html.cm-skin .zA .T-I:not(.T-I-KE) svg,
-       html.cm-skin .zA .T-I:not(.T-I-KE) svg * { fill: ${text} !important; }
+       /* 4. Hover-Feedback */
+       html.cm-skin div[gh="mtb"] [role="button"]:not([id*="chatmail"]):hover,
+       html.cm-skin div[gh="mtb"] button:not([id*="chatmail"]):hover,
+       html.cm-skin .G-atb [role="button"]:not([id*="chatmail"]):hover { background: rgba(255,255,255,0.10) !important; border-radius: 8px; }
 
-       /* 5. Hover-Feedback */
-       html.cm-skin div[gh="mtb"] .T-I:not(.T-I-KE):hover,
-       html.cm-skin .G-atb .T-I:not(.T-I-KE):hover,
-       html.cm-skin .zA .T-I:not(.T-I-KE):hover { background: rgba(255,255,255,0.10) !important; border-radius: 8px; }
+       /* 5. Per-Email-Zeile hover-Icons (.zA rows) */
+       html.cm-skin .zA [role="button"]:not([id*="chatmail"]) { color: ${text} !important; }
+       html.cm-skin .zA [role="button"]:not([id*="chatmail"]) > *,
+       html.cm-skin .zA [role="button"]:not([id*="chatmail"]) > * > * { filter: brightness(0) invert(1) !important; }
+       html.cm-skin .zA [role="button"]:not([id*="chatmail"]) svg,
+       html.cm-skin .zA [role="button"]:not([id*="chatmail"]) svg * { fill: ${text} !important; }
 
        /* 6. Stern/Wichtig/Reply Icons */
        html.cm-skin .iH svg, html.cm-skin .iH svg *,
