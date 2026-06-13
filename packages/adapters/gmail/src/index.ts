@@ -818,10 +818,24 @@ function injectToolbarButton(deps: AdapterDeps): void {
       'border:none', 'background:#f2c200', 'color:#1a1a1a', 'display:inline-flex',
       'align-items:center', 'gap:6px', 'font-size:12.5px', 'font-weight:700',
       'font-family:inherit', 'cursor:pointer', 'white-space:nowrap',
-      'box-shadow:0 1px 2px rgba(0,0,0,0.2)', 'transition:background 0.15s',
+      'box-shadow:0 1px 2px rgba(0,0,0,0.2)', 'transition:background 0.15s,transform 0.1s,box-shadow 0.1s',
     ].join(';');
-    btn.addEventListener('mouseenter', () => (btn.style.background = '#ffd333'));
-    btn.addEventListener('mouseleave', () => (btn.style.background = '#f2c200'));
+    btn.addEventListener('mouseenter', () => {
+      btn.style.background = '#ffd333';
+      btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.25)';
+    });
+    btn.addEventListener('mouseleave', () => {
+      btn.style.background = '#f2c200';
+      btn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
+      btn.style.transform = 'translateY(0) scale(1)';
+    });
+    btn.addEventListener('mousedown', () => {
+      btn.style.transform = 'scale(0.91)';
+      btn.style.boxShadow = '0 0 0 rgba(0,0,0,0)';
+    });
+    btn.addEventListener('mouseup', () => {
+      btn.style.transform = 'scale(1)';
+    });
     btn.addEventListener('click', () => void toggle(deps));
     grp.appendChild(btn);
     // Einstellungs-Zahnrad (nur wenn openSettings vorhanden)

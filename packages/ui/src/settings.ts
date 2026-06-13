@@ -69,7 +69,7 @@ export const DEFAULT_SETTINGS: ChatSettings = {
   ownName: '',
   filterSignatures: true,
   showAttachments: true,
-  autoActivate: false,
+  autoActivate: true,
   showDateSeparators: true,
   languages: ['de', 'en', 'fr', 'es', 'it'],
   uiLanguage: 'de',
