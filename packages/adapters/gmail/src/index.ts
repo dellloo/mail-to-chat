@@ -1,6 +1,6 @@
 import { parseThread, type Attachment, type MessageObject, type Sender } from '@chatmail/core';
 import { createChatView, ICONS, type ChatSettings } from '@chatmail/ui';
-import { applySkin } from './skin';
+import { applySkin, updateSkinPageClass } from './skin';
 
 export { applySkin, buildSkinCss } from './skin';
 
@@ -1045,6 +1045,10 @@ export function initGmailAdapter(deps: AdapterDeps): void {
 
   // Gmail-Skin beim Start anwenden
   void deps.getSettings().then((s) => applySkin(s));
+
+  // Settings-Seiten-Klasse bei Gmail-Navigation (Hash-Wechsel) aktualisieren.
+  // Gmail nutzt #settings/... Hashes → hashchange feuert zuverlässig bei Settings-Navigation.
+  window.addEventListener('hashchange', updateSkinPageClass);
   // Erster Lauf ueber runCheck (nicht direkt check()) damit der Single-Flight-
   // Guard von Anfang an gilt.
   void runCheck();

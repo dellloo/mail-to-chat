@@ -103,11 +103,30 @@ html.cm-skin, html.cm-skin body, html.cm-skin .nH.bkK, html.cm-skin .aeJ { backg
 html.cm-skin .nH, html.cm-skin .aeF, html.cm-skin .AO { background: transparent !important; }
 html.cm-skin body, html.cm-skin .zA, html.cm-skin .hP, html.cm-skin .a3s, html.cm-skin .gD { color: ${text} !important; }
 
-/* Gmail-Settings-Seiten: innere Content-Areas mit Skin-Hintergrund abdecken.
-   Ohne diese Regel gilt body-color: ${text} auf weißen settings-Hintergründen → Text unsichtbar. */
-html.cm-skin .nH.bkK .w-asV,
-html.cm-skin .nH.bkK .Kj,
-html.cm-skin .nH.bkK .bAK { background: ${surface} !important; color: ${text} !important; }
+/* === Gmail-Settings-Seiten: cm-skin-settings-Fix ===
+   cm-skin-settings wird via JS gesetzt wenn URL-Hash bei #settings ist.
+   Deckt ALLE Settings-Sub-Seiten ab (Allgemein, Labels, Filter, ...).
+   Strategie: alle Descendants von .nH.bkK auf Surface-Farbe + Text-Farbe setzen,
+   damit body{color:text} nicht auf weißen Hintergründen unsichtbar wird.
+   img/svg/path bleiben transparent (keine Farb-Beeinflussung). */
+html.cm-skin.cm-skin-settings .nH.bkK { background: ${surface} !important; }
+html.cm-skin.cm-skin-settings .nH.bkK *:not(img):not(svg):not(path):not(script):not(style) {
+  background-color: ${surface} !important;
+  color: ${text} !important;
+}
+html.cm-skin.cm-skin-settings .nH.bkK img,
+html.cm-skin.cm-skin-settings .nH.bkK svg,
+html.cm-skin.cm-skin-settings .nH.bkK path { background-color: transparent !important; }
+html.cm-skin.cm-skin-settings .nH.bkK a { color: ${accent} !important; }
+html.cm-skin.cm-skin-settings .nH.bkK input:not([type="checkbox"]):not([type="radio"]),
+html.cm-skin.cm-skin-settings .nH.bkK select,
+html.cm-skin.cm-skin-settings .nH.bkK textarea {
+  background: ${bg} !important;
+  color: ${text} !important;
+  border-color: rgba(128,128,128,0.3) !important;
+}
+html.cm-skin.cm-skin-settings .nH.bkK [type="checkbox"],
+html.cm-skin.cm-skin-settings .nH.bkK [type="radio"] { accent-color: ${accent} !important; }
 
 /* Listen & Karten */
 html.cm-skin .zA { background: ${surface} !important; border-radius: ${radius}px !important; margin: 2px 6px !important; border: none !important; }
@@ -140,6 +159,15 @@ ${flair}
 `;
 }
 
+/**
+ * Setzt/entfernt die cm-skin-settings-Klasse anhand des aktuellen URL-Hashes.
+ * Wird von applySkin() UND dem hashchange-Listener in initGmailAdapter aufgerufen.
+ */
+export function updateSkinPageClass(): void {
+  const onSettings = typeof location !== 'undefined' && location.hash.startsWith('#settings');
+  document.documentElement.classList.toggle('cm-skin-settings', onSettings);
+}
+
 /** Skin anwenden/entfernen - live, ohne Reload. */
 export function applySkin(settings: ChatSettings): void {
   const root = document.documentElement;
@@ -147,6 +175,7 @@ export function applySkin(settings: ChatSettings): void {
   if (!settings.gmailSkin?.enabled) {
     style?.remove();
     root.classList.remove('cm-skin');
+    root.classList.remove('cm-skin-settings');
     return;
   }
   if (!style) {
@@ -156,4 +185,5 @@ export function applySkin(settings: ChatSettings): void {
   }
   style.textContent = buildSkinCss(settings.gmailSkin);
   root.classList.add('cm-skin');
+  updateSkinPageClass(); // Settings-Page-Klasse sofort setzen
 }
