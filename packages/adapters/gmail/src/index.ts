@@ -40,18 +40,17 @@ function log(...args: unknown[]): void {
 }
 
 const BTN_ID = 'chatmail-toggle-btn';
-const LOADBAR_ID = 'chatmail-loadbar';
 const HOST_CLASS = 'chatmail-host';
 
 const LABELS = {
   de: {
-    active: '● Chat', inactive: '○ Klassisch',
+    active: 'Chat', inactive: 'Klassisch',
     tooltipOn: 'Chat-Ansicht aktiv · klicken zum Deaktivieren',
     tooltipOff: 'Chat-Ansicht aktivieren',
     replyCtx: 'Antwort auf', forwardCtx: 'Weiterleiten',
   },
   en: {
-    active: '● Chat', inactive: '○ Classic',
+    active: 'Chat', inactive: 'Classic',
     tooltipOn: 'Chat view active · click to deactivate',
     tooltipOff: 'Activate chat view',
     replyCtx: 'Replying to', forwardCtx: 'Forwarding',
@@ -791,45 +790,40 @@ async function updateButtonLabel(deps: AdapterDeps): Promise<void> {
   const labels = LABELS[settings.uiLanguage] ?? LABELS.de;
   const tb = document.getElementById(TB_ID);
   if (!tb) return;
+  const track = tb.querySelector<HTMLElement>('.cm-sw-track');
+  const thumb = tb.querySelector<HTMLElement>('.cm-sw-thumb');
+  const lbl   = tb.querySelector<HTMLElement>('.cm-sw-label');
   if (state.active) {
-    tb.innerHTML = `${ICONS.chat}<span>${labels.active}</span>`;
+    if (track) track.style.background = '#f2c200';
+    if (thumb) thumb.style.transform  = 'translateX(16px)';
+    if (lbl)   lbl.textContent = labels.active;
     tb.title = labels.tooltipOn;
   } else {
-    tb.innerHTML = `${ICONS.mail}<span>${labels.inactive}</span>`;
+    if (track) track.style.background = 'rgba(128,128,128,0.35)';
+    if (thumb) thumb.style.transform  = 'translateX(0)';
+    if (lbl)   lbl.textContent = labels.inactive;
     tb.title = labels.tooltipOff;
   }
 }
 
 /**
- * Visueller Lade-Zustand des Toggle-Buttons.
- * NASA-Prinzip: der User bekommt immer sofortiges, klares Feedback.
- * Verhindert Spam-Klicks visuell UND per pointer-events.
+ * Visueller Lade-Zustand des Toggle-Switch.
+ * NASA-Prinzip: sofortiges, klares Feedback — unclickbar + Switch pulsiert.
  */
 function setButtonLoading(loading: boolean): void {
   const tb = document.getElementById(TB_ID);
   if (!tb) return;
-  const bar = document.getElementById(LOADBAR_ID);
+  const track = tb.querySelector<HTMLElement>('.cm-sw-track');
   if (loading) {
-    tb.style.opacity = '0.55';
+    tb.style.opacity = '0.5';
     tb.style.pointerEvents = 'none';
     tb.setAttribute('aria-busy', 'true');
-    tb.style.animation = 'chatmail-pulse 0.9s ease-in-out infinite';
-    if (bar) {
-      bar.style.display = 'block';
-      // Neustart der Animation via reflow
-      bar.style.animation = 'none';
-      void bar.offsetWidth; // reflow
-      bar.style.animation = 'chatmail-loadbar 1.1s ease-in-out infinite';
-    }
+    if (track) track.style.animation = 'chatmail-pulse 0.9s ease-in-out infinite';
   } else {
     tb.style.opacity = '';
     tb.style.pointerEvents = '';
     tb.removeAttribute('aria-busy');
-    tb.style.animation = '';
-    if (bar) {
-      bar.style.display = 'none';
-      bar.style.animation = '';
-    }
+    if (track) track.style.animation = '';
   }
 }
 
@@ -873,51 +867,53 @@ function injectToolbarButton(deps: AdapterDeps): void {
       'position:absolute', 'top:50%', 'transform:translateY(-50%)', 'z-index:9',
       'display:inline-flex', 'align-items:center', 'gap:6px', 'display:none',
     ].join(';');
-    // Toggle-Pill
+    // Toggle-Switch (iOS/Settings-Style)
     const btn = document.createElement('button');
     btn.id = TB_ID;
     btn.type = 'button';
+    btn.title = LABELS.de.tooltipOff;
     btn.style.cssText = [
-      'margin:0', 'padding:5px 14px', 'border-radius:999px',
-      'border:none', 'background:#f2c200', 'color:#1a1a1a', 'display:inline-flex',
-      'align-items:center', 'gap:6px', 'font-size:12.5px', 'font-weight:700',
-      'font-family:inherit', 'cursor:pointer', 'white-space:nowrap',
-      'box-shadow:0 1px 2px rgba(0,0,0,0.2)', 'transition:background 0.15s,transform 0.1s,box-shadow 0.1s',
+      'margin:0', 'padding:4px 10px 4px 8px', 'border:none',
+      'background:transparent', 'cursor:pointer',
+      'display:inline-flex', 'align-items:center', 'gap:7px',
+      'font-family:inherit', 'font-size:12.5px', 'font-weight:600',
+      'color:inherit', 'border-radius:6px', 'white-space:nowrap',
+      'transition:background 0.15s',
     ].join(';');
     btn.addEventListener('mouseenter', () => {
-      btn.style.background = '#ffd333';
-      btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.25)';
+      if (btn.style.pointerEvents !== 'none') btn.style.background = 'rgba(128,128,128,0.12)';
     });
-    btn.addEventListener('mouseleave', () => {
-      btn.style.background = '#f2c200';
-      btn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
-      btn.style.transform = 'translateY(0) scale(1)';
-    });
-    btn.addEventListener('mousedown', () => {
-      btn.style.transform = 'scale(0.91)';
-      btn.style.boxShadow = '0 0 0 rgba(0,0,0,0)';
-    });
-    btn.addEventListener('mouseup', () => {
-      btn.style.transform = 'scale(1)';
-    });
+    btn.addEventListener('mouseleave', () => { btn.style.background = 'transparent'; });
     btn.addEventListener('click', () => void toggle(deps));
-    // P0.2: Sofort sichtbarer Label — verhindert leeren Button-Flash bevor
-    // updateButtonLabel(deps) (async, getSettings) zurückkommt.
-    // Sprache wird danach korrekt gesetzt; DE-Fallback ist immer akzeptabel.
-    btn.innerHTML = `${ICONS.mail}<span>${LABELS.de.inactive}</span>`;
-    btn.title = LABELS.de.tooltipOff;
-    // Fortschrittsbalken: 2px-Linie am unteren Button-Rand, nur während Loading sichtbar.
-    // overflow:hidden + position:relative clippen den Balken auf die Button-Form.
-    btn.style.position = 'relative';
-    btn.style.overflow = 'hidden';
-    const loadbar = document.createElement('span');
-    loadbar.id = LOADBAR_ID;
-    loadbar.style.cssText = [
-      'position:absolute', 'bottom:0', 'left:0', 'height:2px', 'width:100%',
-      'background:rgba(0,0,0,0.3)', 'transform-origin:left center',
-      'transform:scaleX(0)', 'display:none', 'pointer-events:none',
+
+    // Switch-Track: Rundrechteck, Farbe zeigt Zustand
+    const track = document.createElement('div');
+    track.className = 'cm-sw-track';
+    track.style.cssText = [
+      'position:relative', 'width:36px', 'height:20px',
+      'border-radius:10px', 'background:rgba(128,128,128,0.35)',
+      'transition:background 0.2s ease', 'flex-shrink:0',
+      'pointer-events:none',
     ].join(';');
-    btn.appendChild(loadbar);
+
+    // Switch-Thumb: weißer Kreis, gleitet links↔rechts
+    const thumb = document.createElement('div');
+    thumb.className = 'cm-sw-thumb';
+    thumb.style.cssText = [
+      'position:absolute', 'top:3px', 'left:3px',
+      'width:14px', 'height:14px', 'border-radius:50%',
+      'background:#fff', 'box-shadow:0 1px 3px rgba(0,0,0,0.35)',
+      'transition:transform 0.2s ease',
+    ].join(';');
+    track.appendChild(thumb);
+
+    // P0.2: Sofort sichtbarer Label (DE-Fallback) — verhindert leeren Flash.
+    const lbl = document.createElement('span');
+    lbl.className = 'cm-sw-label';
+    lbl.textContent = LABELS.de.inactive;
+
+    btn.appendChild(track);
+    btn.appendChild(lbl);
     grp.appendChild(btn);
     // Einstellungs-Zahnrad (nur wenn openSettings vorhanden)
     if (deps.openSettings) {
@@ -954,12 +950,8 @@ function injectGlobalCss(): void {
   if (document.getElementById('chatmail-global-css')) return;
   const s = document.createElement('style');
   s.id = 'chatmail-global-css';
-  s.textContent = [
-    // Pulsieren des Buttons während Lade-Zustand
-    '@keyframes chatmail-pulse{0%,100%{opacity:0.5}50%{opacity:0.22}}',
-    // Fortschrittsbalken: fährt von links nach rechts, dann Reset
-    '@keyframes chatmail-loadbar{0%{transform:scaleX(0);opacity:1}85%{transform:scaleX(1);opacity:1}100%{transform:scaleX(1);opacity:0}}',
-  ].join('');
+  // Pulsieren des Switch-Tracks während Lade-Zustand
+  s.textContent = '@keyframes chatmail-pulse{0%,100%{opacity:0.5}50%{opacity:0.22}}';
   document.head.appendChild(s);
 }
 

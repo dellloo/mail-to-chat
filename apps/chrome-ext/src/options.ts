@@ -38,7 +38,7 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
     tipBody: 'Mail-Liste und offene Mail nebeneinander (wie in Thunderbird) ist eine <strong>native Gmail-Funktion</strong> und funktioniert perfekt mit der Chat-Ansicht:<br><br>In Gmail: <strong>Zahnrad-Symbol (oben rechts) → „Lesebereich" → „Rechts neben dem Posteingang"</strong>',
     bmcText: 'Hey, ich bin Dello :) Ich baue Mail to Chat ganz alleine in meiner Freizeit – ohne Werbung, ohne Tracking, ohne Abo. Wenn dieses Tool deinen Mail-Alltag ein Stück schöner und übersichtlicher macht, freue ich mich riesig über einen Kaffee :)<br><strong>Versprochen: Alle Funktionen bleiben für immer kostenlos.</strong>',
     bmcBtn: `${ICONS.coffee} Spendier mir einen Kaffee`,
-    footer: 'Mail to Chat v1.3.4 · Alle Daten bleiben auf deinem Gerät · Open Source',
+    footer: 'Mail to Chat v1.3.5 · Alle Daten bleiben auf deinem Gerät · Open Source',
   },
   en: {
     tagline: 'Your mail. Your pace. No chaos.', badge: '100% LOCAL',
@@ -64,7 +64,7 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
     tipBody: 'Mail list and open mail side by side (like Thunderbird) is a <strong>native Gmail feature</strong> and works perfectly with the chat view:<br><br>In Gmail: <strong>gear icon (top right) → "Reading pane" → "Right of inbox"</strong>',
     bmcText: "Hey, I'm Dello :) I build Mail to Chat all by myself in my free time - no ads, no tracking, no subscription. If this tool makes your daily email routine a bit nicer and clearer, I'd be absolutely thrilled to receive a coffee :)<br><strong>Promised: All features will remain free forever.</strong>",
     bmcBtn: `${ICONS.coffee} Buy me a coffee`,
-    footer: 'Mail to Chat v1.3.4 · All data stays on your device · Open source',
+    footer: 'Mail to Chat v1.3.5 · All data stays on your device · Open source',
   },
 };
 
