@@ -228,6 +228,19 @@ export function buildCss(settings: ChatSettings): string {
 .cm-chat.dark .cm-row.own .cm-body, .cm-chat.dark .cm-row.own .cm-body * { color: var(--cm-own-text) !important; }
 .cm-chat.dark .cm-body a, .cm-chat.dark .cm-body a * { color: #8ab4f8 !important; text-decoration: underline; }
 .cm-chat.dark .cm-body img { background: transparent !important; }
+/* HTML Safe Mode: weißer Container für Mail-Inhalte bei dunklen Themes.
+   HTML-Mails sind für weißen Hintergrund designt - Inline-Farben wie
+   color:#000 wären auf dunklem Bubble-BG unsichtbar. Safe Mode gibt dem
+   Body-Container explizit weißen Grund und lässt Mail-eigene Inline-Styles
+   wieder greifen. Höhere Spezifität (.dark.html-safe) schlägt .dark-Regeln
+   selbst bei !important (CSS-Priorität: gleich important → höhere Spezifität). */
+.cm-chat.dark.html-safe .cm-body {
+  background: #ffffff !important; color: #1a1a1a !important;
+  border-radius: 6px; padding: 6px 10px; margin: 2px 0;
+}
+.cm-chat.dark.html-safe .cm-body * { color: unset !important; background: unset !important; border-color: unset !important; }
+.cm-chat.dark.html-safe .cm-body img { background: transparent !important; max-width: 100% !important; }
+.cm-chat.dark.html-safe .cm-body a { color: #0066cc !important; text-decoration: underline; }
 .cm-body img { max-width: 100%; height: auto !important; border-radius: 8px; cursor: zoom-in; transition: filter 0.15s; }
 .cm-body img:hover { filter: brightness(1.06); }
 /* Newsletter-Härtung: feste Breiten (600px-Tabellen etc.) werden fluid,
@@ -507,6 +520,7 @@ export function renderMessages(messages: MessageObject[], settings: ChatSettings
   const classes = ['cm-chat', `ts-${settings.timestamps}`];
   if (t.minimal) classes.push('minimal');
   if (themeIsDark(t)) classes.push('dark');
+  if (themeIsDark(t) && settings.htmlSafeBg !== false) classes.push('html-safe');
   return `<div class="${classes.join(' ')}">${empty}${rows}</div>`;
 }
 

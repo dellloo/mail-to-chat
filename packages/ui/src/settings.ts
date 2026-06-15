@@ -30,6 +30,14 @@ export interface ChatSettings {
   uiLanguage: 'de' | 'en';
   /** Chat-Design separat anpassen (false = folgt dem allgemeinen Design). */
   chatThemeSeparate: boolean;
+  /**
+   * HTML-Mails auf weißem Hintergrund anzeigen (default: true).
+   * HTML-Mails sind für weiße Hintergründe designt. Bei dunklen Themes
+   * würden Inline-Farben (z.B. schwarzer Text) auf dunklem Grund unsichtbar.
+   * Mit htmlSafeBg = true bekommt der Mail-Body einen weißen Container,
+   * Inline-Styles der Mail greifen wieder korrekt.
+   */
+  htmlSafeBg: boolean;
   /** Skin für die GESAMTE Gmail-Oberfläche (Beta). */
   gmailSkin: {
     enabled: boolean;
@@ -74,6 +82,7 @@ export const DEFAULT_SETTINGS: ChatSettings = {
   languages: ['de', 'en', 'fr', 'es', 'it'],
   uiLanguage: 'de',
   chatThemeSeparate: false,
+  htmlSafeBg: true,
   gmailSkin: {
     enabled: false,
     accent: '#e6b400',
