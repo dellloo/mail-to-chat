@@ -122,7 +122,13 @@
 
 ### P3 — Zukunft (nicht in nächster Version, aber im Hinterkopf behalten)
 
-#### 3.9 Onboarding-Flow bei Erstinstallation
+#### 3.9 htmlSafeBg — Übergang weiter verbessern (Nice-to-have)
+
+**Was:** Der aktuelle `inset box-shadow` Ansatz ist OK, aber noch nicht perfekt. Ideal: dünner gefärbter Außenrand der pixel-genau und flüssig direkt in das Weiß übergeht — kein sichtbarer Schatteneffekt, kein "Rahmen"-Look, reiner Farbübergang direkt an der Grenze.
+**Technische Richtung:** CSS `mask-image` als Soft-Edge-Vignette, oder `outline` in Bubble-Farbe mit `outline-offset: -1px` + `border-radius`.
+**Priorität:** P3 — aktuell akzeptabel, das ist eine Feinheit.
+
+#### 3.10 Onboarding-Flow bei Erstinstallation
 
 **Was:** Wenn die Extension zum ersten Mal in Gmail injiziert wird (kein gespeicherter State), erscheint ein einmaliger Tooltip: "✦ Mail to Chat ist aktiv — deine Mails werden jetzt als Chat angezeigt." mit einem "Verstanden" Button.
 **Warum:** Viele User wissen nach der Installation nicht was passiert ist. Zero-Confusion = bessere Retention.

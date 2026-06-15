@@ -26,13 +26,21 @@ export interface AdapterDeps {
   setAutoActivate?: (on: boolean) => void;
 }
 
+/** Ringpuffer: letzte 50 Log-Einträge für window.__chatmailDebug.log */
+const DEBUG_LOG: { t: number; msg: string }[] = [];
+const DEBUG_LOG_MAX = 50;
+
 /** Diagnose-Log: macht in der Browser-Konsole sichtbar, welche Station laeuft. */
 function log(...args: unknown[]): void {
+  const msg = args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+  if (DEBUG_LOG.length >= DEBUG_LOG_MAX) DEBUG_LOG.shift();
+  DEBUG_LOG.push({ t: Date.now(), msg });
   // console.log statt .info: die Info-Stufe ist in manchen Konsolen ausgeblendet
   console.log('[Mail to Chat]', ...args);
 }
 
 const BTN_ID = 'chatmail-toggle-btn';
+const LOADBAR_ID = 'chatmail-loadbar';
 const HOST_CLASS = 'chatmail-host';
 
 const LABELS = {
@@ -475,6 +483,8 @@ let sessionMode: boolean | null = null;
 // Ohne Guard loest die DOM-Mutation aus activate() via MutationObserver einen
 // zweiten activate()-Aufruf aus, waehrend der erste noch laeuft.
 let activating = false;
+/** Spam-Guard: true während der gesamten toggle()-Operation (inkl. Deaktivierung + Label-Update). */
+let toggling = false;
 
 async function waitFor<T>(fn: () => T | null | undefined, timeoutMs = 6000, stepMs = 120): Promise<T | null> {
   const t0 = Date.now();
@@ -734,20 +744,25 @@ async function activate(deps: AdapterDeps): Promise<boolean> {
  * temporär zum Editor; danach kehrt die Chat-Ansicht automatisch zurück.
  */
 async function toggle(deps: AdapterDeps): Promise<void> {
-  // Anti-Spam-Guard: wenn Aktivierung läuft, Klick ignorieren.
-  if (activating) {
-    log('Toggle ignoriert: Aktivierung läuft noch.');
+  // Spam-Guard: toggling deckt BEIDE Pfade ab (Aktivierung + Deaktivierung).
+  // activating als zweite Schranke gegen Race mit check().
+  if (toggling || activating) {
+    log('Toggle ignoriert: Operation läuft noch.');
     return;
   }
+  toggling = true;
+  // Sofortiges visuelles Feedback — verhindert Spam-Klicks ab dem ersten Frame.
+  setButtonLoading(true);
   try {
     log('Toggle geklickt. Aktiv bisher:', state.active);
     if (state.active) {
+      // Deaktivierung: sync + schnell, aber updateButtonLabel() danach ist async.
+      // Ohne toggling/setButtonLoading hätte der Button bis dahin keinen Schutz.
       deactivate();
       sessionMode = false;
       deps.setAutoActivate?.(false);
     } else {
       activating = true;
-      setButtonLoading(true);
       try {
         const ok = await activate(deps);
         // KEIN waitFor-Blocking: sessionMode=true → MutationObserver/check() übernimmt Retry
@@ -758,13 +773,16 @@ async function toggle(deps: AdapterDeps): Promise<void> {
         }
       } finally {
         activating = false;
-        setButtonLoading(false);
       }
     }
     await updateButtonLabel(deps);
   } catch (err) {
     console.error('[Mail to Chat] Toggle fehlgeschlagen:', err);
-    activating = false; // Sicherheitsnetz: Flag auch bei unerwarteten Fehlern freigeben
+    activating = false;
+  } finally {
+    // Immer aufräumen — auch bei unerwarteten Fehlern.
+    toggling = false;
+    setButtonLoading(false);
   }
 }
 
@@ -790,16 +808,28 @@ async function updateButtonLabel(deps: AdapterDeps): Promise<void> {
 function setButtonLoading(loading: boolean): void {
   const tb = document.getElementById(TB_ID);
   if (!tb) return;
+  const bar = document.getElementById(LOADBAR_ID);
   if (loading) {
-    tb.style.opacity = '0.5';
+    tb.style.opacity = '0.55';
     tb.style.pointerEvents = 'none';
     tb.setAttribute('aria-busy', 'true');
     tb.style.animation = 'chatmail-pulse 0.9s ease-in-out infinite';
+    if (bar) {
+      bar.style.display = 'block';
+      // Neustart der Animation via reflow
+      bar.style.animation = 'none';
+      void bar.offsetWidth; // reflow
+      bar.style.animation = 'chatmail-loadbar 1.1s ease-in-out infinite';
+    }
   } else {
     tb.style.opacity = '';
     tb.style.pointerEvents = '';
     tb.removeAttribute('aria-busy');
     tb.style.animation = '';
+    if (bar) {
+      bar.style.display = 'none';
+      bar.style.animation = '';
+    }
   }
 }
 
@@ -876,6 +906,18 @@ function injectToolbarButton(deps: AdapterDeps): void {
     // Sprache wird danach korrekt gesetzt; DE-Fallback ist immer akzeptabel.
     btn.innerHTML = `${ICONS.mail}<span>${LABELS.de.inactive}</span>`;
     btn.title = LABELS.de.tooltipOff;
+    // Fortschrittsbalken: 2px-Linie am unteren Button-Rand, nur während Loading sichtbar.
+    // overflow:hidden + position:relative clippen den Balken auf die Button-Form.
+    btn.style.position = 'relative';
+    btn.style.overflow = 'hidden';
+    const loadbar = document.createElement('span');
+    loadbar.id = LOADBAR_ID;
+    loadbar.style.cssText = [
+      'position:absolute', 'bottom:0', 'left:0', 'height:2px', 'width:100%',
+      'background:rgba(0,0,0,0.3)', 'transform-origin:left center',
+      'transform:scaleX(0)', 'display:none', 'pointer-events:none',
+    ].join(';');
+    btn.appendChild(loadbar);
     grp.appendChild(btn);
     // Einstellungs-Zahnrad (nur wenn openSettings vorhanden)
     if (deps.openSettings) {
@@ -912,8 +954,12 @@ function injectGlobalCss(): void {
   if (document.getElementById('chatmail-global-css')) return;
   const s = document.createElement('style');
   s.id = 'chatmail-global-css';
-  // chatmail-pulse: Pulsieren während Button im Lade-Zustand ist
-  s.textContent = '@keyframes chatmail-pulse{0%,100%{opacity:0.5}50%{opacity:0.22}}';
+  s.textContent = [
+    // Pulsieren des Buttons während Lade-Zustand
+    '@keyframes chatmail-pulse{0%,100%{opacity:0.5}50%{opacity:0.22}}',
+    // Fortschrittsbalken: fährt von links nach rechts, dann Reset
+    '@keyframes chatmail-loadbar{0%{transform:scaleX(0);opacity:1}85%{transform:scaleX(1);opacity:1}100%{transform:scaleX(1);opacity:0}}',
+  ].join('');
   document.head.appendChild(s);
 }
 
@@ -1149,6 +1195,46 @@ export function initGmailAdapter(deps: AdapterDeps): void {
     if (!isStillOwner()) { clearInterval(heartbeat); return; }
     scheduleCheck();
   }, 3_000);
+
+  // Debug-Handle: in der Browser-Konsole (F12) verfügbar als window.__chatmailDebug
+  // Gibt vollen internen Zustand + Log-Ringpuffer aus. Nie in Prod-Logs exponieren.
+  type DbgHandle = {
+    readonly state: object;
+    readonly log: string[];
+    dump(): void;
+    forceCheck(): void;
+    readonly version: string;
+  };
+  (window as Window & { __chatmailDebug?: DbgHandle }).__chatmailDebug = {
+    get state() {
+      return {
+        active: state.active,
+        activating,
+        toggling,
+        sessionMode,
+        lastThreadKey,
+        retryActivationCount,
+        composeMode: state.composeMode,
+        hostConnected: state.host?.isConnected ?? false,
+        listConnected: state.hiddenList?.isConnected ?? false,
+        generation: myGen,
+      };
+    },
+    get log() {
+      const now = Date.now();
+      return DEBUG_LOG.map((e, i) => `[${i.toString().padStart(2)}] -${((now - e.t) / 1000).toFixed(1)}s  ${e.msg}`);
+    },
+    dump() {
+      console.group('[Mail to Chat] Debug Dump');
+      console.log('Version:', version, '· Instanz #' + String(myGen));
+      console.table(DEBUG_LOG.map((e) => ({ ago: `-${((Date.now() - e.t) / 1000).toFixed(1)}s`, msg: e.msg })));
+      console.log('State:', { ...this.state });
+      console.groupEnd();
+    },
+    forceCheck() { log('forceCheck() via Debug-Handle'); scheduleCheck(); },
+    version,
+  };
+  log('Debug-Handle verfügbar: window.__chatmailDebug.dump()');
 
   // Erster Lauf ueber runCheck (nicht direkt check()) damit der Single-Flight-
   // Guard von Anfang an gilt.
