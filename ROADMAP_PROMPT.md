@@ -58,6 +58,16 @@
 - Version in manifest.json, manifest.src.json und ROADMAP (Abschnitt 1) synchron halten
 - Niemals pushen ohne lokalen Build+Test-Lauf (94/94)
 
+**Commit-Body Pflichtformat** (bei jedem fix/feat):
+```
+Problem:  Was war kaputt / fehlte
+Ursache:  Root Cause (nicht nur Symptom)
+Lösung:   Was geändert wurde und warum
+Hinweis:  (optional) Portierungshinweise für Thunderbird/Firefox/andere Plattformen
+```
+Zweck: Die Git-History ist das Handbuch für zukünftige Ports. Jedes gelöste
+Problem soll nie neu analysiert werden müssen.
+
 **UX-Prinzipien (Silicon Valley / Apple-Standard):**
 
 - **Zero-friction:** Es funktioniert sofort, ohne Konfiguration. Der User denkt nicht über das Tool nach.
