@@ -159,12 +159,38 @@
     .bmc a.btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(255,221,0,0.55); }
 
     .footer { text-align: center; color: var(--ink-soft); font-size: 0.78em; margin-top: 28px; }
+
+    /* ── Brief·Chat Logo Animation ── */
+    .cm-logo { width:52px; height:52px; flex-shrink:0; transform-origin:center;
+               filter:drop-shadow(0 4px 12px rgba(0,0,0,0.3));
+               animation:cm-bg-in 0.42s cubic-bezier(0.22,1,0.36,1) both; }
+    .cm-logo-shape { transform-box:fill-box; transform-origin:center;
+                     animation:cm-shape-in 0.38s cubic-bezier(0.22,1,0.36,1) 0.07s both; }
+    .cm-logo-vline { stroke-dasharray:240; stroke-dashoffset:240;
+                     animation:cm-draw 0.48s cubic-bezier(0.22,1,0.36,1) 0.28s both; }
+    .cm-logo-dot1  { transform-box:fill-box; transform-origin:center;
+                     animation:cm-dot-pop 0.32s cubic-bezier(0.22,1.4,0.5,1) 0.54s both; }
+    .cm-logo-dot2  { transform-box:fill-box; transform-origin:center;
+                     animation:cm-dot-pop 0.32s cubic-bezier(0.22,1.4,0.5,1) 0.65s both; }
+    .cm-logo-dot3  { transform-box:fill-box; transform-origin:center;
+                     animation:cm-dot-pop 0.32s cubic-bezier(0.22,1.4,0.5,1) 0.76s both; }
+    @keyframes cm-bg-in    { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
+    @keyframes cm-shape-in { from{opacity:0;transform:scale(0.6)} to{opacity:1;transform:scale(1)} }
+    @keyframes cm-draw     { from{stroke-dashoffset:240} to{stroke-dashoffset:0} }
+    @keyframes cm-dot-pop  { 0%{transform:scale(0)} 65%{transform:scale(1.35)} 100%{transform:scale(1)} }
   </style>
 </head>
 <body>
   <div class="shell">
     <div class="hero">
-      <img src="icons/icon128.png" alt="Mail to Chat">
+      <svg class="cm-logo" viewBox="0 0 120 120" role="img" aria-label="Mail to Chat">
+        <rect x="0" y="0" width="120" height="120" rx="22" fill="#111111"/>
+        <path class="cm-logo-shape" d="M22,14 L94,14 Q106,14 106,26 L106,72 Q106,84 94,84 L110,100 L74,84 L22,84 Q10,84 10,72 L10,26 Q10,14 22,14 Z" fill="#F2C200"/>
+        <path class="cm-logo-vline" d="M10,14 L58,50 L106,14" fill="none" stroke="#111111" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle class="cm-logo-dot1" cx="42" cy="68" r="4.5" fill="#111111"/>
+        <circle class="cm-logo-dot2" cx="58" cy="68" r="4.5" fill="#111111"/>
+        <circle class="cm-logo-dot3" cx="74" cy="68" r="4.5" fill="#111111"/>
+      </svg>
       <div>
         <h1>Mail to Chat</h1>
         <div class="tag" data-i18n="tagline">Deine Mails. Dein Tempo. Kein Chaos.</div>
