@@ -95,7 +95,19 @@ export function buildSkinCss(skin: ChatSettings['gmailSkin']): string {
        /* 8. Mail-Body: Inline-Farben neutralisieren */
        html.cm-skin .a3s, html.cm-skin .a3s *:not(img):not(a) { color: ${text} !important; background: transparent !important; border-color: rgba(255,255,255,0.25) !important; }
        html.cm-skin .a3s a, html.cm-skin .a3s a * { color: #8ab4f8 !important; background: transparent !important; }
-       html.cm-skin .ii.gt { background: transparent !important; }`
+       html.cm-skin .ii.gt { background: transparent !important; }
+
+       /* 9. Compose/Reply-Toolbar Icons (Formatierung, Emoji, Anhang, etc.)
+          .aDh = Gmail Compose-Formatierungs-Toolbar (stabil)
+          [role="toolbar"]:not([gh]) = alle weiteren Toolbars ausser Hauptleiste */
+       html.cm-skin .aDh [role="button"]:not([id*="chatmail"]),
+       html.cm-skin [role="toolbar"]:not([gh]) [role="button"]:not([id*="chatmail"]):not(.T-I-KE) { color: ${text} !important; opacity: 1 !important; }
+       html.cm-skin .aDh [role="button"]:not([id*="chatmail"]) > *,
+       html.cm-skin .aDh [role="button"]:not([id*="chatmail"]) > * > *,
+       html.cm-skin [role="toolbar"]:not([gh]) [role="button"]:not([id*="chatmail"]):not(.T-I-KE) > *,
+       html.cm-skin [role="toolbar"]:not([gh]) [role="button"]:not([id*="chatmail"]):not(.T-I-KE) > * > * { filter: brightness(0) invert(1) !important; }
+       html.cm-skin .aDh [role="button"]:not([id*="chatmail"]):hover,
+       html.cm-skin [role="toolbar"]:not([gh]) [role="button"]:not([id*="chatmail"]):not(.T-I-KE):hover { background: rgba(255,255,255,0.10) !important; border-radius: 8px; }`
     : '';
   return `
 /* Grundflächen */

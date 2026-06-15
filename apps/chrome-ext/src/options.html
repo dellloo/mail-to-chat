@@ -178,6 +178,22 @@
     @keyframes cm-shape-in { from{opacity:0;transform:scale(0.6)} to{opacity:1;transform:scale(1)} }
     @keyframes cm-draw     { from{stroke-dashoffset:240} to{stroke-dashoffset:0} }
     @keyframes cm-dot-pop  { 0%{transform:scale(0)} 65%{transform:scale(1.35)} 100%{transform:scale(1)} }
+
+    /* ── Erweiterte Einstellungen (collapsible) ── */
+    details.card-adv > summary {
+      list-style: none; cursor: pointer;
+      display: flex; align-items: center; margin: 0;
+    }
+    details.card-adv > summary::-webkit-details-marker { display: none; }
+    details.card-adv > summary h2 { margin: 0; flex: 1; }
+    details.card-adv > summary::after {
+      content: '›'; font-size: 1.3em; line-height: 1;
+      color: var(--ink-soft); opacity: 0.55;
+      transition: transform 0.2s ease;
+      display: inline-block;
+    }
+    details.card-adv[open] > summary::after { transform: rotate(90deg); }
+    details.card-adv > .adv-body { margin-top: 12px; }
   </style>
 </head>
 <body>
@@ -252,22 +268,33 @@
         </div>
 
         <div class="card">
-          <h2 data-i18n="hDisplay">Darstellung</h2>
-          <label><span class="lbl" data-i18n="fontSize">Schriftgröße</span>
-            <select id="font-size">
-              <option value="small" data-i18n="fsSmall">Klein</option>
-              <option value="normal" data-i18n="fsNormal">Normal</option>
-              <option value="large" data-i18n="fsLarge">Groß</option>
-            </select>
-          </label>
-          <label><span class="lbl" data-i18n="timestamps">Zeitstempel</span>
-            <select id="timestamps">
-              <option value="always" data-i18n="tsAlways">Immer sichtbar</option>
-              <option value="hover" data-i18n="tsHover">Nur beim Hover</option>
-              <option value="hidden" data-i18n="tsHidden">Versteckt</option>
-            </select>
-          </label>
+          <h2 data-i18n="hBehavior">Verhalten</h2>
+          <label><input type="checkbox" id="filter-sig"> <span data-i18n="optSig">Signaturen einklappen</span></label>
+          <label><input type="checkbox" id="show-atts"> <span data-i18n="optAtts">Anhänge-Galerie anzeigen</span></label>
+          <label><input type="checkbox" id="date-separators"> <span data-i18n="optDates">Datums-Trenner („Heute", „Gestern")</span></label>
+          <label><input type="checkbox" id="html-safe-bg"> <span data-i18n="optHtmlSafe">Weißer Hintergrund für Mail-Inhalte (empfohlen bei dunklen Themes)</span></label>
+          <small data-i18n="behaviorHint">Der Chat-Modus selbst wird direkt in Gmail geschaltet: Der gelbe Button über jeder Mail gilt dauerhaft für alle Mails - einmal an, immer an (bis du ihn wieder ausschaltest).</small>
         </div>
+
+        <details class="card card-adv">
+          <summary><h2 data-i18n="hDisplay">Darstellung</h2></summary>
+          <div class="adv-body">
+            <label><span class="lbl" data-i18n="fontSize">Schriftgröße</span>
+              <select id="font-size">
+                <option value="small" data-i18n="fsSmall">Klein</option>
+                <option value="normal" data-i18n="fsNormal">Normal</option>
+                <option value="large" data-i18n="fsLarge">Groß</option>
+              </select>
+            </label>
+            <label><span class="lbl" data-i18n="timestamps">Zeitstempel</span>
+              <select id="timestamps">
+                <option value="always" data-i18n="tsAlways">Immer sichtbar</option>
+                <option value="hover" data-i18n="tsHover">Nur beim Hover</option>
+                <option value="hidden" data-i18n="tsHidden">Versteckt</option>
+              </select>
+            </label>
+          </div>
+        </details>
 
         <div class="card">
           <h2 data-i18n="hIdentity">Identität</h2>
@@ -277,15 +304,6 @@
             <textarea id="own-emails" placeholder="dello@gmail.com&#10;dello@firma.de"></textarea>
           </label>
           <small data-i18n="identityHint">Wird sonst automatisch aus Gmail erkannt. Bestimmt, welche Bubbles rechts (deine) stehen.</small>
-        </div>
-
-        <div class="card">
-          <h2 data-i18n="hBehavior">Verhalten</h2>
-          <label><input type="checkbox" id="filter-sig"> <span data-i18n="optSig">Signaturen einklappen</span></label>
-          <label><input type="checkbox" id="show-atts"> <span data-i18n="optAtts">Anhänge-Galerie anzeigen</span></label>
-          <label><input type="checkbox" id="date-separators"> <span data-i18n="optDates">Datums-Trenner („Heute", „Gestern")</span></label>
-          <label><input type="checkbox" id="html-safe-bg"> <span data-i18n="optHtmlSafe">Weißer Hintergrund für Mail-Inhalte (empfohlen bei dunklen Themes)</span></label>
-          <small data-i18n="behaviorHint">Der Chat-Modus selbst wird direkt in Gmail geschaltet: Der gelbe Button über jeder Mail gilt dauerhaft für alle Mails - einmal an, immer an (bis du ihn wieder ausschaltest).</small>
         </div>
 
         <div class="card">

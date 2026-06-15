@@ -97,7 +97,9 @@ function setComposeMode(on: boolean): void {
     list.style.removeProperty('display');
     let editorLi: HTMLElement | null = null;
     for (const li of items) {
-      const hasEditor = li.querySelector('[g_editable="true"], [contenteditable="true"]');
+      // Breiter Selektor: g_editable, contenteditable (egal ob ="true" oder ohne Wert),
+      // textbox-role und Gmail-Klasse .Am.Al.editable — deckt alle bekannten Gmail-Editor-Varianten ab.
+      const hasEditor = li.querySelector('[g_editable="true"], [contenteditable], div[role="textbox"], .Am.Al.editable');
       if (hasEditor) {
         li.style.removeProperty('display');
         editorLi = li;
@@ -499,6 +501,17 @@ function findComposeBody(): HTMLElement | null {
   return document.querySelector<HTMLElement>(
     'div[role="textbox"][g_editable="true"], div[aria-label="Nachrichtentext"], div[aria-label="Message Body"], div.Am.Al.editable',
   );
+}
+
+/**
+ * Findet einen Compose-Body NUR wenn er INNERHALB der versteckten Thread-Liste liegt.
+ * Verhindert, dass das Schreiben-Popup (neuer Tab, nicht Antwort) den Compose-Mode
+ * triggert und die Chat-Ansicht zerstört. Inline-Antworten liegen immer im hiddenList.
+ */
+function findInlineComposeBody(): HTMLElement | null {
+  if (!state.hiddenList) return null;
+  const body = findComposeBody();
+  return body && state.hiddenList.contains(body) ? body : null;
 }
 
 function findReplyTrigger(): HTMLElement | null {
@@ -1046,11 +1059,11 @@ export function initGmailAdapter(deps: AdapterDeps): void {
       if (state.active && (!state.host?.isConnected || !state.hiddenList?.isConnected)) {
         deactivate();
       }
-      // Compose-Mode: Editor offen -> unter der Chat-Ansicht einblenden
-      // (Chat bleibt oben). Editor zu -> Liste wieder verstecken + Chat
-      // aktualisieren (gesendete Antwort einlesen).
+      // Compose-Mode: INLINE-Editor (Antworten) offen -> unter der Chat-Ansicht einblenden.
+      // findInlineComposeBody() stellt sicher, dass das Schreiben-Popup (neue Mail)
+      // den Compose-Mode NICHT triggert — es liegt nicht im hiddenList.
       if (state.active && !sendingViaChat) {
-        const hasCompose = !!findComposeBody();
+        const hasCompose = !!findInlineComposeBody();
         if (hasCompose) {
           setComposeMode(true); // bei jedem Zyklus re-anwenden (Gmail mutiert den DOM)
         } else if (state.composeMode) {

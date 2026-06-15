@@ -38,7 +38,7 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
     tipBody: 'Mail-Liste und offene Mail nebeneinander (wie in Thunderbird) ist eine <strong>native Gmail-Funktion</strong> und funktioniert perfekt mit der Chat-Ansicht:<br><br>In Gmail: <strong>Zahnrad-Symbol (oben rechts) → „Lesebereich" → „Rechts neben dem Posteingang"</strong>',
     bmcText: 'Hey, ich bin Dello :) Ich baue Mail to Chat ganz alleine in meiner Freizeit – ohne Werbung, ohne Tracking, ohne Abo. Wenn dieses Tool deinen Mail-Alltag ein Stück schöner und übersichtlicher macht, freue ich mich riesig über einen Kaffee :)<br><strong>Versprochen: Alle Funktionen bleiben für immer kostenlos.</strong>',
     bmcBtn: `${ICONS.coffee} Spendier mir einen Kaffee`,
-    footer: 'Mail to Chat v1.3.8 · Alle Daten bleiben auf deinem Gerät · Open Source',
+    footer: 'Mail to Chat v1.4.0 · Alle Daten bleiben auf deinem Gerät · Open Source',
   },
   en: {
     tagline: 'Your mail. Your pace. No chaos.', badge: '100% LOCAL',
@@ -190,9 +190,12 @@ function sampleMessages(lang: 'de' | 'en'): MessageObject[] {
 
 function renderPreview(): void {
   const preview = $('#preview');
-  preview.innerHTML = `<style>${buildCss(settings).replace(':host { all: initial; }', '')}</style>${renderMessages(
+  // htmlSafeBg deaktivieren für die Vorschau: Sample-Nachrichten sind Plain-Text,
+  // kein HTML-Newsletter → weißer html-safe-Block wäre ein visueller Bug.
+  const previewSettings: ChatSettings = { ...settings, htmlSafeBg: false };
+  preview.innerHTML = `<style>${buildCss(previewSettings).replace(':host { all: initial; }', '')}</style>${renderMessages(
     sampleMessages(settings.uiLanguage),
-    settings,
+    previewSettings,
   )}`;
   renderSkinPreview();
 }
