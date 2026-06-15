@@ -810,12 +810,12 @@ async function updateButtonLabel(deps: AdapterDeps): Promise<void> {
     if (track) track.style.background = '#f2c200';
     if (thumb) thumb.style.transform  = 'translateX(16px)';
     if (lbl)   lbl.textContent = labels.active;
-    tb.dataset['tooltip'] = labels.tooltipOn;
+    tb.dataset['cmtt'] = labels.tooltipOn;
   } else {
     if (track) track.style.background = 'rgba(128,128,128,0.35)';
     if (thumb) thumb.style.transform  = 'translateX(0)';
     if (lbl)   lbl.textContent = labels.inactive;
-    tb.dataset['tooltip'] = labels.tooltipOff;
+    tb.dataset['cmtt'] = labels.tooltipOff;
   }
 }
 
@@ -888,8 +888,10 @@ function injectToolbarButton(deps: AdapterDeps): void {
     btn.id = TB_ID;
     btn.type = 'button';
     // Kein aria-label: auf macOS/Chrome löst aria-label einen nativen Tooltip-Delay aus.
-    // Barrierefreiheit: sichtbarer Text "Chat"/"Klassisch" ist der zugängliche Name.
-    btn.dataset['tooltip'] = LABELS.de.tooltipOff;
+    // Kein data-tooltip: Gmail liest dieses Attribut selbst aus → würde Gmails eigenen
+    // Tooltip zusätzlich zu unserem CSS-Tooltip auslösen (Doppel-Tooltip-Problem).
+    // data-cmtt = Mail-to-Chat-eigenes Attribut, das Gmail nicht kennt.
+    btn.dataset['cmtt'] = LABELS.de.tooltipOff;
     btn.style.cssText = [
       'margin:0', 'padding:4px 10px 4px 8px', 'border:none',
       'background:transparent', 'cursor:pointer',
@@ -938,10 +940,11 @@ function injectToolbarButton(deps: AdapterDeps): void {
       const gear = document.createElement('button');
       gear.id = GEAR_ID;
       gear.type = 'button';
-      // Kein title: verhindert nativen Browser-Tooltip-Delay. Kein aria-label: würde
-      // auf macOS/Chrome ebenfalls einen nativen Tooltip auslösen.
+      // Kein title, kein aria-label: beide lösen nativen Browser-Tooltip aus.
+      // Kein data-tooltip: Gmail liest dieses Attribut → Doppel-Tooltip.
+      // data-cmtt = eigenes Attribut, das Gmail nicht kennt.
       // SR-Fallback: visuell versteckter <span> liefert zugänglichen Namen für Screen Reader.
-      gear.dataset['tooltip'] = 'Mail to Chat — Einstellungen';
+      gear.dataset['cmtt'] = 'Mail to Chat — Einstellungen';
       gear.innerHTML = ICONS.gear;
       const gearSrLabel = document.createElement('span');
       gearSrLabel.style.cssText = 'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0';
@@ -990,15 +993,16 @@ function injectGlobalCss(): void {
     '@keyframes chatmail-pulse{0%,100%{opacity:0.5}50%{opacity:0.22}}',
     // position:relative auf beiden Buttons (Basis für absolut-positioniertes ::after)
     '#chatmail-toggle-tb,#chatmail-settings-btn{position:relative;}',
-    // Custom-Tooltip: jeder Selektor hat sein eigenes ::after — kein Komma-Selektor-Bug
-    '#chatmail-toggle-tb[data-tooltip]::after,#chatmail-settings-btn[data-tooltip]::after{',
-    'content:attr(data-tooltip);position:absolute;top:calc(100% + 8px);left:50%;',
+    // Custom-Tooltip via data-cmtt (NICHT data-tooltip: Gmail liest data-tooltip selbst →
+    // Doppel-Tooltip). Jeder Selektor hat sein eigenes ::after — kein Komma-Selektor-Bug.
+    '#chatmail-toggle-tb[data-cmtt]::after,#chatmail-settings-btn[data-cmtt]::after{',
+    'content:attr(data-cmtt);position:absolute;top:calc(100% + 8px);left:50%;',
     'transform:translateX(-50%);white-space:nowrap;',
     'background:rgba(15,15,15,0.92);color:#fff;padding:5px 10px;border-radius:6px;',
     'font-size:11.5px;font-weight:500;pointer-events:none;',
     'opacity:0;transition:opacity 0.08s ease;z-index:99999;',
     'box-shadow:0 2px 8px rgba(0,0,0,0.30);}',
-    '#chatmail-toggle-tb:hover[data-tooltip]::after,#chatmail-settings-btn:hover[data-tooltip]::after{opacity:1;}',
+    '#chatmail-toggle-tb:hover[data-cmtt]::after,#chatmail-settings-btn:hover[data-cmtt]::after{opacity:1;}',
   ].join('');
 }
 
@@ -1279,42 +1283,12 @@ export function initGmailAdapter(deps: AdapterDeps): void {
     forceCheck() { log('forceCheck() via Debug-Handle'); scheduleCheck(); },
     version,
   };
-  log('Debug-Handle verfügbar: window.__chatmailDebug.dump()');
-
-  // Debug-Brücke: Content Scripts laufen in einer Isolated World — window.__chatmailDebug
-  // ist dort gesetzt, aber der Standard-DevTools-Kontext ist "top" (Main World).
-  // Lösung: Proxy-Shim via CustomEvent-Bus zwischen den Welten.
-  // Idempotent: ID-Guard verhindert Doppel-Injektion bei mehrfachem initGmailAdapter().
-  if (!document.getElementById('chatmail-debug-bridge')) {
-    // Isolated-World-Seite: empfängt Kommandos, leitet an echtes Handle weiter.
-    window.addEventListener('__cmDbgReq', (e) => {
-      const cmd = (e as CustomEvent<{ cmd: string }>).detail?.cmd;
-      const d = (window as Window & { __chatmailDebug?: DbgHandle }).__chatmailDebug;
-      if (!d) return;
-      if (cmd === 'dump')       { d.dump(); return; }
-      if (cmd === 'forceCheck') { d.forceCheck(); return; }
-      if (cmd === 'state')   { console.log('[Mail to Chat] state:', d.state); return; }
-      if (cmd === 'log')     { console.log('[Mail to Chat] log:', d.log); return; }
-      if (cmd === 'version') { console.log('[Mail to Chat] version:', d.version); return; }
-    });
-    // Main-World-Seite: winziges Shim-Script das window.__chatmailDebug exponiert.
-    const bridge = document.createElement('script');
-    bridge.id = 'chatmail-debug-bridge';
-    bridge.textContent =
-      '(function(){' +
-      'var d=function(c){window.dispatchEvent(new CustomEvent("__cmDbgReq",{detail:{cmd:c}}));};' +
-      'window.__chatmailDebug={' +
-      'dump:function(){d("dump");},' +
-      'get state(){d("state");return"↑ see console";},' +
-      'get log(){d("log");return"↑ see console";},' +
-      'forceCheck:function(){d("forceCheck");},' +
-      'get version(){d("version");return"↑ see console";}' +
-      '};' +
-      'console.log("[Mail to Chat] Debug: window.__chatmailDebug.dump()");' +
-      '})();';
-    (document.head ?? document.documentElement).appendChild(bridge);
-    bridge.remove();
-  }
+  // Debug-Handle: nur in der Isolated World zugänglich.
+  // DevTools-Zugriff: F12 → Console → Kontext-Dropdown (oben, zeigt "top") →
+  // Extension-Context auswählen → window.__chatmailDebug.dump()
+  // KEIN inline-Script-Bridge: Gmail's CSP (script-src 'self', kein unsafe-inline)
+  // blockiert das Injizieren von <script textContent="..."> in den Page-DOM.
+  log('Debug-Handle: F12 → Kontext → Extension → window.__chatmailDebug.dump()');
 
   // Erster Lauf ueber runCheck (nicht direkt check()) damit der Single-Flight-
   // Guard von Anfang an gilt.
