@@ -235,20 +235,13 @@ export function buildCss(settings: ChatSettings): string {
    wieder greifen. Höhere Spezifität (.dark.html-safe) schlägt .dark-Regeln
    selbst bei !important (CSS-Priorität: gleich important → höhere Spezifität). */
 .cm-chat.dark.html-safe .cm-body {
-  /* Basis: weißer Grund damit Mail-Inline-Styles (color:#000 etc.) sichtbar bleiben.
-     Die eigentliche Übergangsfarbe kommt via .cm-row.own/other (s.u.). */
-  background: #ffffff !important; color: #1a1a1a !important;
-  border-radius: 12px; padding: 10px 14px; margin: 4px 0;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.4);
-  overflow: hidden;
-}
-/* Gradient: Bubble-Farbe → Weiß über 32px — theme-adaptiv via CSS-Vars.
-   Höhere Spezifität (5 Klassen) schlägt die Basisregel (4 Klassen). */
-.cm-chat.dark.html-safe .cm-row.other .cm-body {
-  background: linear-gradient(to bottom, var(--cm-other-bubble) 0%, #ffffff 32px) !important;
-}
-.cm-chat.dark.html-safe .cm-row.own .cm-body {
-  background: linear-gradient(to bottom, var(--cm-own-bubble) 0%, #ffffff 32px) !important;
+  /* Radial-Gradient: Weiß in der Mitte → transparent an allen Rändern.
+     Die Bubble dahinter (.cm-bubble) hat bereits die Theme-Farbe als Background —
+     sie scheint an Seiten, Ecken und oben/unten nahtlos durch. Kein border, kein
+     box-shadow, keine sichtbare Grenze. Bubble-Radius übernimmt Ecken-Clipping. */
+  background: radial-gradient(ellipse at center, #ffffff 48%, transparent 92%) !important;
+  color: #1a1a1a !important;
+  padding: 10px 14px; margin: 4px 0;
 }
 .cm-chat.dark.html-safe .cm-body * { color: unset !important; background: unset !important; border-color: unset !important; }
 .cm-chat.dark.html-safe .cm-body img { background: transparent !important; max-width: 100% !important; }
