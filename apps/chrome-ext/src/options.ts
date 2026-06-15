@@ -27,7 +27,7 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
     optSig: 'Signaturen einklappen', optAtts: 'Anhänge-Galerie anzeigen',
     optDates: 'Datums-Trenner („Heute", „Gestern")',
     optHtmlSafe: 'Weißer Hintergrund für Mail-Inhalte (empfohlen bei dunklen Themes)',
-    behaviorHint: 'Wenn aktiv: jede E-Mail wird automatisch als Chat-Ansicht geöffnet – ohne Ausnahme. Hier kannst du den Chat-Modus dauerhaft an- oder abschalten.',
+    behaviorHint: 'Diese Einstellungen gelten für alle Mails in der Chat-Ansicht. Den Chat-Modus selbst schaltest du direkt in Gmail über den Schalter oben in der Leiste.',
     skinEnable: 'Komplette Gmail-Oberfläche umgestalten', skinPresets: 'Empfohlene Designs (stylen Gmail UND Chat)',
     skinAccent: 'Akzentfarbe', skinBg: 'Hintergrund', skinSurface: 'Flächen/Listen', skinText: 'Textfarbe',
     skinRadius: 'Eckenrundung', skinFont: 'Schriftart', skinFontDefault: 'Gmail-Standard', skinCompact: 'Kompakte Dichte',
@@ -53,7 +53,7 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
     optSig: 'Collapse signatures', optAtts: 'Show attachment gallery',
     optDates: 'Date separators ("Today", "Yesterday")',
     optHtmlSafe: 'White background for mail content (recommended for dark themes)',
-    behaviorHint: 'When active: every email opens automatically in chat view – without exception. Toggle chat mode permanently on or off here.',
+    behaviorHint: 'These settings apply to all emails in chat view. Toggle the chat mode itself directly in Gmail via the switch in the top bar.',
     skinEnable: 'Restyle the entire Gmail interface', skinPresets: 'Recommended designs (style Gmail AND chat)',
     skinAccent: 'Accent color', skinBg: 'Background', skinSurface: 'Surfaces/lists', skinText: 'Text color',
     skinRadius: 'Corner radius', skinFont: 'Font', skinFontDefault: 'Gmail default', skinCompact: 'Compact density',
@@ -143,47 +143,63 @@ function renderSkinPresets(): void {
 
 /** Beispiel-Chat für die Live-Vorschau - lokalisiert (DE/EN). */
 function sampleMessages(lang: 'de' | 'en'): MessageObject[] {
+  // Dynamische Datumsangaben: Nachricht 1 = gestern, 2+3 = heute.
+  // parseMailDate erkennt "14. Juni" (DE) und "Jun 14" (EN) ohne Jahr.
+  const now = new Date();
+  const yest = new Date(now);
+  yest.setDate(now.getDate() - 1);
+  const DE_MONTHS = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  const EN_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const tsYest = lang === 'de'
+    ? `${yest.getDate()}. ${DE_MONTHS[yest.getMonth()] ?? ''}, 14:30`
+    : `${EN_MONTHS[yest.getMonth()] ?? ''} ${yest.getDate()}, 2:30 PM`;
+  const tsToday1 = lang === 'de'
+    ? `${now.getDate()}. ${DE_MONTHS[now.getMonth()] ?? ''}, 09:14`
+    : `${EN_MONTHS[now.getMonth()] ?? ''} ${now.getDate()}, 9:14 AM`;
+  const tsToday2 = lang === 'de'
+    ? `${now.getDate()}. ${DE_MONTHS[now.getMonth()] ?? ''}, 09:25`
+    : `${EN_MONTHS[now.getMonth()] ?? ''} ${now.getDate()}, 9:25 AM`;
+
   const t =
     lang === 'en'
       ? {
-          q: 'Hi! Can we move the meeting to 3 pm?',
-          a: 'Sure, works even better for me. 👍',
-          c: 'Great, see you later! Agenda attached.',
+          q0: 'Hey, can you send me the agenda for tomorrow\'s meeting?',
+          q: 'Hi! Can we move tomorrow\'s meeting to 3 pm?',
+          c: 'Sure, works even better! Here\'s the updated agenda.',
           me: 'You',
           file: 'agenda.pdf',
         }
       : {
-          q: 'Hi! Können wir das Meeting auf 15 Uhr verschieben?',
-          a: 'Klar, passt mir sogar besser. 👍',
-          c: 'Super, dann bis später! Anbei noch die Agenda.',
+          q0: 'Hey, kannst du mir die Agenda für das Meeting morgen schicken?',
+          q: 'Hi! Können wir das Meeting morgen auf 15 Uhr verschieben?',
+          c: 'Klar, passt mir sogar besser! Hier die aktualisierte Agenda.',
           me: 'Du',
           file: 'agenda.pdf',
         };
   return [
     {
       sender: { name: 'Max Mustermann', email: 'max@example.com' },
-      timestamp: '09:14',
+      timestamp: tsYest,
+      bodyHtml: t.q0,
+      bodyText: t.q0,
+      attachments: [],
+      isOwn: false,
+    },
+    {
+      sender: { name: 'Max Mustermann', email: 'max@example.com' },
+      timestamp: tsToday1,
       bodyHtml: t.q,
-      bodyText: '',
+      bodyText: t.q,
       attachments: [],
       isOwn: false,
     },
     {
       sender: { name: t.me },
-      timestamp: '09:21',
-      bodyHtml: t.a,
-      bodyText: '',
-      attachments: [],
-      isOwn: true,
-      signatureHtml: 'Dello<br>Mail to Chat',
-    },
-    {
-      sender: { name: 'Max Mustermann', email: 'max@example.com' },
-      timestamp: '09:25',
+      timestamp: tsToday2,
       bodyHtml: t.c,
-      bodyText: '',
+      bodyText: t.c,
       attachments: [{ kind: 'file', name: t.file, url: '#' }],
-      isOwn: false,
+      isOwn: true,
     },
   ];
 }
