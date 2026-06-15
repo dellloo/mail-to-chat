@@ -9,7 +9,7 @@
 
 **Produkt:** Chrome Extension (MV3) + Firefox (MV2). Monorepo: `packages/core`, `packages/ui`, `packages/adapters/gmail`, `apps/chrome-ext`, `apps/firefox-ext`. TypeScript strict, esbuild, Vitest (94 Tests).
 
-**Aktuell stabile Version:** v1.2.0 (restauriert von v1.0.8 + Fixes aus v1.1.x)
+**Aktuell stabile Version:** v1.3.3
 
 **Was funktioniert:**
 
@@ -41,9 +41,22 @@
 
 - Zero-Halluzination: nur implementieren was du 100% verstehst. Bei Unklarheit: Rückfrage.
 - Alle Änderungen müssen `npm run build` + `npx vitest run` (94/94) bestehen.
-- Git-Commit nach jeder abgeschlossenen Einheit, semantisches Versioning.
 - Kein Refactoring ohne konkreten Grund. Stabilität > Eleganz.
 - TypeScript strict: kein `any`, kein `@ts-ignore`.
+
+**Git & Versioning:**
+
+- Semantisches Versioning: `MAJOR.MINOR.PATCH`
+  - `PATCH`: Bugfix, kein Breaking Change, kein neues Feature
+  - `MINOR`: Neues Feature, backward-kompatibel
+  - `MAJOR`: Breaking Change oder Architektur-Änderung
+- Commit-Format: `<type>(<scope>): <beschreibung>`
+  - `type`: `fix` | `feat` | `refactor` | `chore` | `docs` | `test`
+  - `scope`: `core` | `ui` | `gmail` | `chrome` | `firefox` | `release`
+- Git-Tag nach jedem Release: `git tag -a v1.x.x -m "v1.x.x: ..."` + `git push origin v1.x.x`
+- `apps/chrome-ext/manifest.json` + `apps/firefox-ext/manifest.src.json` immer auf gleicher Version halten
+- Version in manifest.json, manifest.src.json und ROADMAP (Abschnitt 1) synchron halten
+- Niemals pushen ohne lokalen Build+Test-Lauf (94/94)
 
 **UX-Prinzipien (Silicon Valley / Apple-Standard):**
 

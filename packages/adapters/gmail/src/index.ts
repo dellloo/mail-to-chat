@@ -989,6 +989,9 @@ export function initGmailAdapter(deps: AdapterDeps): void {
   let scheduled = false;
   let checking = false;
   let needsRecheck = false;
+  /** NASA: Aufgabe-Flag — verhindert Endlosschleife wenn Retries erschöpft.
+   *  Wird NUR bei Thread-Wechsel zurückgesetzt, NICHT durch den Heartbeat. */
+  let activationGaveUp = false;
 
   const scheduleCheck = (): void => {
     // Neuere Instanz hat uebernommen? Nicht mehr einreihen.
@@ -1038,6 +1041,7 @@ export function initGmailAdapter(deps: AdapterDeps): void {
       // Threadwechsel: alten Zustand verwerfen (Toolbar-Gruppe bleibt, Chat-View weg)
       lastThreadKey = key;
       retryActivationCount = 0; // NASA: Reset Retry-Counter bei Thread-Wechsel
+      activationGaveUp = false;  // NASA: Retry-Sperre aufheben bei Thread-Wechsel
       deactivate();
     }
     injectToolbarButton(deps); // Leisten-Toggle in allen Ansichten (Inbox, Suche, Spam, ...)
@@ -1069,7 +1073,7 @@ export function initGmailAdapter(deps: AdapterDeps): void {
         //   (a) !state.active  - toggle() koennte inzwischen aktiviert haben
         //   (b) !activating    - toggle().activate() laeuft noch
         // Ohne beides: doppelte Aktivierung (Race mit dem MutationObserver-Zyklus).
-        if (!state.active && !activating && mode && !findComposeBody()) {
+        if (!state.active && !activating && mode && !findComposeBody() && !activationGaveUp) {
           // activating-Flag auch hier setzen: verhindert Race mit toggle(),
           // falls der Nutzer genau waehrend check()'s activate() klickt.
           activating = true;
@@ -1097,8 +1101,10 @@ export function initGmailAdapter(deps: AdapterDeps): void {
               // Safety-Timer: nach 400ms auf jeden Fall versuchen (Observer als Backup)
               setTimeout(retryOnce, 400);
             } else {
-              retryActivationCount = 0;
-              log('autoActivate: maximale Retries erreicht — warte auf nächste Gmail-Mutation.');
+              // NASA: Aufgeben statt Reset — verhindert Heartbeat-getriggerte Endlosschleife.
+              // Nächster Versuch erst bei Thread-Wechsel (setzt activationGaveUp = false).
+              activationGaveUp = true;
+              log('autoActivate: maximale Retries erschöpft — warte auf Thread-Wechsel.');
             }
           } finally {
             activating = false;
@@ -1235,6 +1241,41 @@ export function initGmailAdapter(deps: AdapterDeps): void {
     version,
   };
   log('Debug-Handle verfügbar: window.__chatmailDebug.dump()');
+
+  // Debug-Brücke: Content Scripts laufen in einer Isolated World — window.__chatmailDebug
+  // ist dort gesetzt, aber der Standard-DevTools-Kontext ist "top" (Main World).
+  // Lösung: Proxy-Shim via CustomEvent-Bus zwischen den Welten.
+  // Idempotent: ID-Guard verhindert Doppel-Injektion bei mehrfachem initGmailAdapter().
+  if (!document.getElementById('chatmail-debug-bridge')) {
+    // Isolated-World-Seite: empfängt Kommandos, leitet an echtes Handle weiter.
+    window.addEventListener('__cmDbgReq', (e) => {
+      const cmd = (e as CustomEvent<{ cmd: string }>).detail?.cmd;
+      const d = (window as Window & { __chatmailDebug?: DbgHandle }).__chatmailDebug;
+      if (!d) return;
+      if (cmd === 'dump')       { d.dump(); return; }
+      if (cmd === 'forceCheck') { d.forceCheck(); return; }
+      if (cmd === 'state')   { console.log('[Mail to Chat] state:', d.state); return; }
+      if (cmd === 'log')     { console.log('[Mail to Chat] log:', d.log); return; }
+      if (cmd === 'version') { console.log('[Mail to Chat] version:', d.version); return; }
+    });
+    // Main-World-Seite: winziges Shim-Script das window.__chatmailDebug exponiert.
+    const bridge = document.createElement('script');
+    bridge.id = 'chatmail-debug-bridge';
+    bridge.textContent =
+      '(function(){' +
+      'var d=function(c){window.dispatchEvent(new CustomEvent("__cmDbgReq",{detail:{cmd:c}}));};' +
+      'window.__chatmailDebug={' +
+      'dump:function(){d("dump");},' +
+      'get state(){d("state");return"↑ see console";},' +
+      'get log(){d("log");return"↑ see console";},' +
+      'forceCheck:function(){d("forceCheck");},' +
+      'get version(){d("version");return"↑ see console";}' +
+      '};' +
+      'console.log("[Mail to Chat] Debug: window.__chatmailDebug.dump()");' +
+      '})();';
+    (document.head ?? document.documentElement).appendChild(bridge);
+    bridge.remove();
+  }
 
   // Erster Lauf ueber runCheck (nicht direkt check()) damit der Single-Flight-
   // Guard von Anfang an gilt.
