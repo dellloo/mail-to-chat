@@ -236,7 +236,8 @@ export function buildCss(settings: ChatSettings): string {
    selbst bei !important (CSS-Priorität: gleich important → höhere Spezifität). */
 .cm-chat.dark.html-safe .cm-body {
   background: #ffffff !important; color: #1a1a1a !important;
-  border-radius: 6px; padding: 6px 10px; margin: 2px 0;
+  border-radius: 12px; padding: 10px 14px; margin: 4px 0;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.4);
 }
 .cm-chat.dark.html-safe .cm-body * { color: unset !important; background: unset !important; border-color: unset !important; }
 .cm-chat.dark.html-safe .cm-body img { background: transparent !important; max-width: 100% !important; }
