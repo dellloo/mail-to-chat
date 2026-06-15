@@ -68,6 +68,17 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
   },
 };
 
+/** Logo-Animation neu abspielen — z.B. beim Sprachwechsel. */
+function replayLogoAnimation(): void {
+  const els = document.querySelectorAll<HTMLElement>(
+    '.cm-logo,.cm-logo-shape,.cm-logo-vline,.cm-logo-dot1,.cm-logo-dot2,.cm-logo-dot3'
+  );
+  els.forEach((el) => { el.style.animation = 'none'; });
+  // Reflow erzwingen damit der Browser die Animation wirklich neustartet
+  document.querySelector('.cm-logo')?.getBoundingClientRect();
+  els.forEach((el) => { el.style.animation = ''; });
+}
+
 function applyOptionsLanguage(): void {
   const t = OPTIONS_I18N[settings.uiLanguage] ?? OPTIONS_I18N.de;
   document.querySelectorAll<HTMLElement>('[data-i18n]').forEach((el) => {
@@ -399,6 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
       applyOptionsLanguage();
       renderPreview();
       scheduleSave();
+      replayLogoAnimation();
     });
   });
   // Live-Vorschau + Auto-Save bei jeder Eingabe (inkl. Sprachwechsel)
