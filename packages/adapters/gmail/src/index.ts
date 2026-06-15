@@ -851,7 +851,10 @@ function positionGroup(group: HTMLElement, toolbar: HTMLElement): void {
  * Wrapper-Div zusammengefasst, damit sie nie in eine neue Zeile brechen.
  */
 function injectToolbarButton(deps: AdapterDeps): void {
-  const hasMail = !!findThreadHeader();
+  // Strenger Check: nur h2.hP (Gmails Thread-Betreff-Klasse), kein generischer h2-Fallback.
+  // findThreadHeader() hat einen Inbox-Heading-Fallback der zu false positives führt —
+  // der Switch soll ausschließlich sichtbar sein wenn wirklich ein Thread offen ist.
+  const hasMail = Array.from(document.querySelectorAll<HTMLElement>('h2.hP')).some(isVisible);
   const toolbar = Array.from(document.querySelectorAll<HTMLElement>('div[gh="mtb"]')).find(isVisible);
   let grp = document.getElementById(GROUP_ID);
   if (!toolbar) {
