@@ -36,8 +36,18 @@ const BTN_ID = 'chatmail-toggle-btn';
 const HOST_CLASS = 'chatmail-host';
 
 const LABELS = {
-  de: { toChat: 'Chat-Ansicht', toClassic: 'Klassisch', replyCtx: 'Antwort auf', forwardCtx: 'Weiterleiten' },
-  en: { toChat: 'Chat view', toClassic: 'Classic', replyCtx: 'Replying to', forwardCtx: 'Forwarding' },
+  de: {
+    active: '● Chat', inactive: '○ Klassisch',
+    tooltipOn: 'Chat-Ansicht aktiv · klicken zum Deaktivieren',
+    tooltipOff: 'Chat-Ansicht aktivieren',
+    replyCtx: 'Antwort auf', forwardCtx: 'Weiterleiten',
+  },
+  en: {
+    active: '● Chat', inactive: '○ Classic',
+    tooltipOn: 'Chat view active · click to deactivate',
+    tooltipOff: 'Activate chat view',
+    replyCtx: 'Replying to', forwardCtx: 'Forwarding',
+  },
 };
 
 /** Kontext für das WhatsApp-Style-Banner über dem Gmail-Editor. */
@@ -693,11 +703,18 @@ async function activate(deps: AdapterDeps): Promise<boolean> {
     onReplyTo: (idx, draft) => jumpToAction(idx, 'reply', draft),
     onForward: (idx, draft) => jumpToAction(idx, 'forward', draft),
   });
+  // Fade-in: opacity 0→1 in 150ms (doppeltes rAF = garantierter Paint-Zyklus vor Transition)
+  host.style.opacity = '0';
   list.parentElement.insertBefore(host, list);
   list.style.display = 'none';
-  // Messenger-Verhalten: unten (neueste Nachricht) starten, nicht oben
   requestAnimationFrame(() => {
+    // Messenger-Verhalten: unten (neueste Nachricht) starten, nicht oben
     state.host?.scrollIntoView({ block: 'end' });
+    requestAnimationFrame(() => {
+      host.style.transition = 'opacity 150ms ease-out';
+      host.style.opacity = '1';
+      setTimeout(() => { if (host.isConnected) host.style.transition = ''; }, 200);
+    });
   });
   // Gmails eigene Antworten/Weiterleiten-Reihe ausblenden - der Composer ersetzt sie
   const replyRow = document.querySelector<HTMLElement>('span.ams.bkH')?.closest<HTMLElement>('.amn');
@@ -730,13 +747,10 @@ async function toggle(deps: AdapterDeps): Promise<void> {
       deps.setAutoActivate?.(false);
     } else {
       activating = true;
-      // Visuelles Feedback: Button während Aktivierung gedimmt + gesperrt
-      const tb = document.getElementById(TB_ID);
-      if (tb) { tb.style.opacity = '0.55'; tb.style.pointerEvents = 'none'; }
+      setButtonLoading(true);
       try {
         const ok = await activate(deps);
-        // KEIN waitFor-Blocking mehr: statt 3s blockieren, sessionMode=true setzen
-        // → MutationObserver/check() übernimmt den Retry sobald Gmail bereit ist.
+        // KEIN waitFor-Blocking: sessionMode=true → MutationObserver/check() übernimmt Retry
         sessionMode = true;
         deps.setAutoActivate?.(true);
         if (!ok) {
@@ -744,8 +758,7 @@ async function toggle(deps: AdapterDeps): Promise<void> {
         }
       } finally {
         activating = false;
-        const tb2 = document.getElementById(TB_ID);
-        if (tb2) { tb2.style.opacity = ''; tb2.style.pointerEvents = ''; }
+        setButtonLoading(false);
       }
     }
     await updateButtonLabel(deps);
@@ -758,11 +771,36 @@ async function toggle(deps: AdapterDeps): Promise<void> {
 async function updateButtonLabel(deps: AdapterDeps): Promise<void> {
   const settings = await deps.getSettings();
   const labels = LABELS[settings.uiLanguage] ?? LABELS.de;
-  const html = state.active
-    ? `${ICONS.mail}<span>${labels.toClassic}</span>`
-    : `${ICONS.chat}<span>${labels.toChat}</span>`;
   const tb = document.getElementById(TB_ID);
-  if (tb) tb.innerHTML = html;
+  if (!tb) return;
+  if (state.active) {
+    tb.innerHTML = `${ICONS.chat}<span>${labels.active}</span>`;
+    tb.title = labels.tooltipOn;
+  } else {
+    tb.innerHTML = `${ICONS.mail}<span>${labels.inactive}</span>`;
+    tb.title = labels.tooltipOff;
+  }
+}
+
+/**
+ * Visueller Lade-Zustand des Toggle-Buttons.
+ * NASA-Prinzip: der User bekommt immer sofortiges, klares Feedback.
+ * Verhindert Spam-Klicks visuell UND per pointer-events.
+ */
+function setButtonLoading(loading: boolean): void {
+  const tb = document.getElementById(TB_ID);
+  if (!tb) return;
+  if (loading) {
+    tb.style.opacity = '0.5';
+    tb.style.pointerEvents = 'none';
+    tb.setAttribute('aria-busy', 'true');
+    tb.style.animation = 'chatmail-pulse 0.9s ease-in-out infinite';
+  } else {
+    tb.style.opacity = '';
+    tb.style.pointerEvents = '';
+    tb.removeAttribute('aria-busy');
+    tb.style.animation = '';
+  }
 }
 
 const GEAR_ID = 'chatmail-settings-btn';
@@ -861,9 +899,27 @@ function injectToolbarButton(deps: AdapterDeps): void {
 }
 
 
+/**
+ * Injiziert globale Animations-Keyframes einmalig in <head>.
+ * Idempotent durch ID-Guard — sicher bei mehrfachem Aufruf.
+ */
+function injectGlobalCss(): void {
+  if (document.getElementById('chatmail-global-css')) return;
+  const s = document.createElement('style');
+  s.id = 'chatmail-global-css';
+  // chatmail-pulse: Pulsieren während Button im Lade-Zustand ist
+  s.textContent = '@keyframes chatmail-pulse{0%,100%{opacity:0.5}50%{opacity:0.22}}';
+  document.head.appendChild(s);
+}
+
 /** Einstieg: beobachtet Gmail (SPA) und verdrahtet Button + Shortcut. */
 export function initGmailAdapter(deps: AdapterDeps): void {
   let lastThreadKey = '';
+
+  // NASA: Bounded retry counter für autoActivate Race-Condition
+  // (Gmail rendert div.adn manchmal später als check() läuft)
+  let retryActivationCount = 0;
+  const MAX_ACTIVATION_RETRIES = 8; // 8 × 400ms = max 3.2s Wartezeit
 
   // ---- Scheduler: Single-Flight + Debounce + Re-Trigger --------------------
   //
@@ -930,6 +986,7 @@ export function initGmailAdapter(deps: AdapterDeps): void {
     if (key !== lastThreadKey) {
       // Threadwechsel: alten Zustand verwerfen (Toolbar-Gruppe bleibt, Chat-View weg)
       lastThreadKey = key;
+      retryActivationCount = 0; // NASA: Reset Retry-Counter bei Thread-Wechsel
       deactivate();
     }
     injectToolbarButton(deps); // Leisten-Toggle in allen Ansichten (Inbox, Suche, Spam, ...)
@@ -965,10 +1022,27 @@ export function initGmailAdapter(deps: AdapterDeps): void {
           // activating-Flag auch hier setzen: verhindert Race mit toggle(),
           // falls der Nutzer genau waehrend check()'s activate() klickt.
           activating = true;
+          setButtonLoading(true);
           try {
-            await activate(deps);
+            const ok = await activate(deps);
+            if (ok) {
+              retryActivationCount = 0; // NASA: Reset nach Erfolg
+            } else if (retryActivationCount < MAX_ACTIVATION_RETRIES) {
+              // NASA: Redundanter Aktivierungs-Pfad — bounded retry
+              // Gmail rendert div.adn manchmal nach check(). Statt ewig zu pollen
+              // (unbounded), planen wir max. MAX_ACTIVATION_RETRIES Versuche.
+              retryActivationCount++;
+              log(`autoActivate Retry ${retryActivationCount}/${MAX_ACTIVATION_RETRIES} in 400ms...`);
+              setTimeout(() => {
+                if (!state.active && isStillOwner()) scheduleCheck();
+              }, 400);
+            } else {
+              retryActivationCount = 0;
+              log('autoActivate: maximale Retries erreicht — warte auf nächste Gmail-Mutation.');
+            }
           } finally {
             activating = false;
+            setButtonLoading(false);
           }
         }
         await updateButtonLabel(deps);
@@ -1043,12 +1117,25 @@ export function initGmailAdapter(deps: AdapterDeps): void {
   }
   document.querySelectorAll(`.${HOST_CLASS}`).forEach((h) => h.remove());
 
+  // NASA: Globale CSS-Keyframes (Puls-Animation für Loading-State) einmalig injizieren
+  injectGlobalCss();
+
   // Gmail-Skin beim Start anwenden
   void deps.getSettings().then((s) => applySkin(s));
 
   // Settings-Seiten-Klasse bei Gmail-Navigation (Hash-Wechsel) aktualisieren.
   // Gmail nutzt #settings/... Hashes → hashchange feuert zuverlässig bei Settings-Navigation.
   window.addEventListener('hashchange', updateSkinPageClass);
+
+  // NASA: Heartbeat — Dead-man's-switch als letzte Verteidigungslinie.
+  // Falls MutationObserver keine Callbacks mehr empfängt (statischer DOM nach dem Rendern),
+  // garantiert dieser Timer mindestens alle 3s einen State-Check.
+  // BOUNDED: Stoppt automatisch sobald isStillOwner() false wird (ältere Instanz).
+  const heartbeat = setInterval(() => {
+    if (!isStillOwner()) { clearInterval(heartbeat); return; }
+    scheduleCheck();
+  }, 3_000);
+
   // Erster Lauf ueber runCheck (nicht direkt check()) damit der Single-Flight-
   // Guard von Anfang an gilt.
   void runCheck();
