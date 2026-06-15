@@ -9,7 +9,7 @@
 
 **Produkt:** Chrome Extension (MV3) + Firefox (MV2). Monorepo: `packages/core`, `packages/ui`, `packages/adapters/gmail`, `apps/chrome-ext`, `apps/firefox-ext`. TypeScript strict, esbuild, Vitest (94 Tests).
 
-**Aktuell stabile Version:** v1.4.3
+**Aktuell stabile Version:** v1.4.5
 
 **Was funktioniert:**
 
@@ -85,19 +85,18 @@ Problem soll nie neu analysiert werden müssen.
 
 ### P1 — Hoch (nächste Version)
 
-#### 3.1 Compose-Toolbar Icons verifizieren (nach Nuclear Fix v2)
+#### 3.1 Compose-Fenster visuell verifizieren (v1.4.5 — bitte testen)
 
-**Status:** Fix in v1.4.3 implementiert — noch nicht vollständig in Praxis verifiziert.
-**Was:** `filter: brightness(0) invert(1)` wird jetzt direkt auf das Button-Element angewendet (nicht nur Kinder), um CSS `mask-image`-Icons abzudecken. Zusätzlich `.aJ6` als Selektor ergänzt.
-**Action:** In Gmail mit aktivem Discord-Dark-Skin einen Reply-Thread öffnen und prüfen: sind Bold/Italic/Font/Emoji/Attach alle weiß?
-
-#### 3.2 Compose-Fenster Styling ("verzogen")
-
-**Was:** Das Reply-Compose-Fenster sieht im Dark-Skin optisch nicht optimal aus — kein klarer Rahmen, kein definiertes Surface.
-**Fix:** Explizite CSS-Regeln für den Compose-Container in `skin.ts` ergänzen:
-  - `background: ${surface}` auf den Compose-Wrapper
-  - `border: 1px solid rgba(255,255,255,0.1)` + `border-radius`
-  - Bekannte Gmail-Klassen: `.nDv`, `.M9`, `.dw` — mit strukturellem Fallback.
+**Status:** Drei-Ebenen-Fix in v1.4.5 implementiert. Nach Extension-Reload Tab refreshen!
+**Was:** 
+- Rule 10 v2: `:has([g_editable])` auf Listitem → `bg=${bg}` (nahtlose Ecken, kein Cutoff)
+- `[role="toolbar"]:not([gh])` in `[role="list"]` → struktureller Fallback für Toolbar-Background
+  (funktioniert auch wenn Gmail `.aDh` umbenennt)
+- Wrapper-Divs transparent (Spezifität sauber: 043 < 058)
+**Action:** Discord-Dark-Skin aktivieren → Reply-Thread öffnen → prüfen:
+  - Toolbar-Hintergrund dunkel? Icons (B, I, U, Emoji, Attach) weiß auf dunklem Grund?
+  - Compose-Textbereich dunkel?
+  - Ecken des Compose-Bereichs: nahtlos statt abgeschnitten?
 
 ---
 
