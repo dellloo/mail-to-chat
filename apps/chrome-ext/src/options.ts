@@ -16,7 +16,7 @@ let settings: ChatSettings = { ...DEFAULT_SETTINGS, custom: { ...DEFAULT_SETTING
 const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
   de: {
     tagline: 'Deine Mails. Dein Tempo. Kein Chaos.', badge: '100% LOKAL',
-    hTheme: 'Chat-Design', hDisplay: 'Darstellung', hIdentity: 'Identität', hBehavior: 'Verhalten',
+    hTheme: 'Chat-Design', hDisplay: 'Darstellung', hIdentity: 'Identität', hBehavior: 'Verhalten', hAdvanced: 'Erweiterte Einstellungen',
     hSkin: 'Design', hLang: 'Sprachen', hPreview: 'Live-Vorschau', hTip: 'Profi-Tipp: Geteilte Ansicht',
     ownBubble: 'Eigene Bubble', ownText: 'Eigene Textfarbe', otherBubble: 'Fremde Bubble',
     otherText: 'Fremde Textfarbe', bgColor: 'Hintergrund', radius: 'Randradius',
@@ -42,7 +42,7 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
   },
   en: {
     tagline: 'Your mail. Your pace. No chaos.', badge: '100% LOCAL',
-    hTheme: 'Chat design', hDisplay: 'Display', hIdentity: 'Identity', hBehavior: 'Behavior',
+    hTheme: 'Chat design', hDisplay: 'Display', hIdentity: 'Identity', hBehavior: 'Behavior', hAdvanced: 'Advanced settings',
     hSkin: 'Design', hLang: 'Languages', hPreview: 'Live preview', hTip: 'Pro tip: Split view',
     ownBubble: 'Your bubble', ownText: 'Your text color', otherBubble: 'Their bubble',
     otherText: 'Their text color', bgColor: 'Background', radius: 'Corner radius',

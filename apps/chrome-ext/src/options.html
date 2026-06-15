@@ -194,6 +194,12 @@
     }
     details.card-adv[open] > summary::after { transform: rotate(90deg); }
     details.card-adv > .adv-body { margin-top: 12px; }
+    .adv-section { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--line); }
+    .adv-section:first-child { margin-top: 8px; padding-top: 0; border-top: none; }
+    .adv-section h3 {
+      font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.09em;
+      color: var(--ink-soft); margin: 0 0 10px; font-weight: 700;
+    }
   </style>
 </head>
 <body>
@@ -277,44 +283,45 @@
         </div>
 
         <details class="card card-adv">
-          <summary><h2 data-i18n="hDisplay">Darstellung</h2></summary>
+          <summary><h2 data-i18n="hAdvanced">Erweiterte Einstellungen</h2></summary>
           <div class="adv-body">
-            <label><span class="lbl" data-i18n="fontSize">Schriftgröße</span>
-              <select id="font-size">
-                <option value="small" data-i18n="fsSmall">Klein</option>
-                <option value="normal" data-i18n="fsNormal">Normal</option>
-                <option value="large" data-i18n="fsLarge">Groß</option>
-              </select>
-            </label>
-            <label><span class="lbl" data-i18n="timestamps">Zeitstempel</span>
-              <select id="timestamps">
-                <option value="always" data-i18n="tsAlways">Immer sichtbar</option>
-                <option value="hover" data-i18n="tsHover">Nur beim Hover</option>
-                <option value="hidden" data-i18n="tsHidden">Versteckt</option>
-              </select>
-            </label>
+            <div class="adv-section">
+              <h3 data-i18n="hDisplay">Darstellung</h3>
+              <label><span class="lbl" data-i18n="fontSize">Schriftgröße</span>
+                <select id="font-size">
+                  <option value="small" data-i18n="fsSmall">Klein</option>
+                  <option value="normal" data-i18n="fsNormal">Normal</option>
+                  <option value="large" data-i18n="fsLarge">Groß</option>
+                </select>
+              </label>
+              <label><span class="lbl" data-i18n="timestamps">Zeitstempel</span>
+                <select id="timestamps">
+                  <option value="always" data-i18n="tsAlways">Immer sichtbar</option>
+                  <option value="hover" data-i18n="tsHover">Nur beim Hover</option>
+                  <option value="hidden" data-i18n="tsHidden">Versteckt</option>
+                </select>
+              </label>
+            </div>
+            <div class="adv-section">
+              <h3 data-i18n="hIdentity">Identität</h3>
+              <label><span class="lbl" data-i18n="ownName">Eigener Name</span><input type="text" id="own-name" placeholder="z. B. Dello"></label>
+              <label style="display:block">
+                <span class="lbl" style="display:block;margin-bottom:6px" data-i18n="ownEmails">Eigene E-Mail-Adressen (eine pro Zeile, Alias-Support)</span>
+                <textarea id="own-emails" placeholder="dello@gmail.com&#10;dello@firma.de"></textarea>
+              </label>
+              <small data-i18n="identityHint">Wird sonst automatisch aus Gmail erkannt. Bestimmt, welche Bubbles rechts (deine) stehen.</small>
+            </div>
+            <div class="adv-section">
+              <h3 data-i18n="hLang">Sprachen</h3>
+              <span class="lbl" style="display:block;margin-bottom:4px" data-i18n="quoteDetect">Zitat-Erkennung in Mails</span>
+              <label><input type="checkbox" class="lang" value="de"> <span data-i18n="lDe">Deutsch</span></label>
+              <label><input type="checkbox" class="lang" value="en"> <span data-i18n="lEn">Englisch</span></label>
+              <label><input type="checkbox" class="lang" value="fr"> <span data-i18n="lFr">Französisch</span></label>
+              <label><input type="checkbox" class="lang" value="es"> <span data-i18n="lEs">Spanisch</span></label>
+              <label><input type="checkbox" class="lang" value="it"> <span data-i18n="lIt">Italienisch</span></label>
+            </div>
           </div>
         </details>
-
-        <div class="card">
-          <h2 data-i18n="hIdentity">Identität</h2>
-          <label><span class="lbl" data-i18n="ownName">Eigener Name</span><input type="text" id="own-name" placeholder="z. B. Dello"></label>
-          <label style="display:block">
-            <span class="lbl" style="display:block;margin-bottom:6px" data-i18n="ownEmails">Eigene E-Mail-Adressen (eine pro Zeile, Alias-Support)</span>
-            <textarea id="own-emails" placeholder="dello@gmail.com&#10;dello@firma.de"></textarea>
-          </label>
-          <small data-i18n="identityHint">Wird sonst automatisch aus Gmail erkannt. Bestimmt, welche Bubbles rechts (deine) stehen.</small>
-        </div>
-
-        <div class="card">
-          <h2 data-i18n="hLang">Sprachen</h2>
-          <span class="lbl" style="display:block;margin-bottom:4px" data-i18n="quoteDetect">Zitat-Erkennung in Mails</span>
-          <label><input type="checkbox" class="lang" value="de"> <span data-i18n="lDe">Deutsch</span></label>
-          <label><input type="checkbox" class="lang" value="en"> <span data-i18n="lEn">Englisch</span></label>
-          <label><input type="checkbox" class="lang" value="fr"> <span data-i18n="lFr">Französisch</span></label>
-          <label><input type="checkbox" class="lang" value="es"> <span data-i18n="lEs">Spanisch</span></label>
-          <label><input type="checkbox" class="lang" value="it"> <span data-i18n="lIt">Italienisch</span></label>
-        </div>
       </div>
 
       <div>
