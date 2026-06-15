@@ -235,13 +235,20 @@ export function buildCss(settings: ChatSettings): string {
    wieder greifen. Höhere Spezifität (.dark.html-safe) schlägt .dark-Regeln
    selbst bei !important (CSS-Priorität: gleich important → höhere Spezifität). */
 .cm-chat.dark.html-safe .cm-body {
-  /* Radial-Gradient: Weiß in der Mitte → transparent an allen Rändern.
-     Die Bubble dahinter (.cm-bubble) hat bereits die Theme-Farbe als Background —
-     sie scheint an Seiten, Ecken und oben/unten nahtlos durch. Kein border, kein
-     box-shadow, keine sichtbare Grenze. Bubble-Radius übernimmt Ecken-Clipping. */
-  background: radial-gradient(ellipse at center, #ffffff 48%, transparent 92%) !important;
+  /* Inset box-shadow statt Gradient: kein CSS-transparent-Grau-Problem.
+     Weißer Hintergrund + Bubble-Farbe als inset shadow an den Kanten.
+     border-radius = Bubble-Radius minus Bubble-Padding (8px) → nahtlose Ecken. */
+  background: #ffffff !important;
   color: #1a1a1a !important;
   padding: 10px 14px; margin: 4px 0;
+  border-radius: max(0px, calc(var(--cm-radius) - 8px));
+  overflow: hidden;
+}
+.cm-chat.dark.html-safe .cm-row.other .cm-body {
+  box-shadow: inset 0 0 14px 3px var(--cm-other-bubble);
+}
+.cm-chat.dark.html-safe .cm-row.own .cm-body {
+  box-shadow: inset 0 0 14px 3px var(--cm-own-bubble);
 }
 .cm-chat.dark.html-safe .cm-body * { color: unset !important; background: unset !important; border-color: unset !important; }
 .cm-chat.dark.html-safe .cm-body img { background: transparent !important; max-width: 100% !important; }
