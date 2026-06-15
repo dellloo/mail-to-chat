@@ -810,13 +810,11 @@ async function updateButtonLabel(deps: AdapterDeps): Promise<void> {
     if (track) track.style.background = '#f2c200';
     if (thumb) thumb.style.transform  = 'translateX(16px)';
     if (lbl)   lbl.textContent = labels.active;
-    tb.setAttribute('aria-label', labels.tooltipOn);
     tb.dataset['tooltip'] = labels.tooltipOn;
   } else {
     if (track) track.style.background = 'rgba(128,128,128,0.35)';
     if (thumb) thumb.style.transform  = 'translateX(0)';
     if (lbl)   lbl.textContent = labels.inactive;
-    tb.setAttribute('aria-label', labels.tooltipOff);
     tb.dataset['tooltip'] = labels.tooltipOff;
   }
 }
@@ -889,7 +887,8 @@ function injectToolbarButton(deps: AdapterDeps): void {
     const btn = document.createElement('button');
     btn.id = TB_ID;
     btn.type = 'button';
-    btn.setAttribute('aria-label', LABELS.de.tooltipOff);
+    // Kein aria-label: auf macOS/Chrome löst aria-label einen nativen Tooltip-Delay aus.
+    // Barrierefreiheit: sichtbarer Text "Chat"/"Klassisch" ist der zugängliche Name.
     btn.dataset['tooltip'] = LABELS.de.tooltipOff;
     btn.style.cssText = [
       'margin:0', 'padding:4px 10px 4px 8px', 'border:none',
@@ -939,8 +938,15 @@ function injectToolbarButton(deps: AdapterDeps): void {
       const gear = document.createElement('button');
       gear.id = GEAR_ID;
       gear.type = 'button';
-      gear.title = 'Mail to Chat - Einstellungen';
+      // Kein title: verhindert nativen Browser-Tooltip-Delay. Kein aria-label: würde
+      // auf macOS/Chrome ebenfalls einen nativen Tooltip auslösen.
+      // SR-Fallback: visuell versteckter <span> liefert zugänglichen Namen für Screen Reader.
+      gear.dataset['tooltip'] = 'Mail to Chat — Einstellungen';
       gear.innerHTML = ICONS.gear;
+      const gearSrLabel = document.createElement('span');
+      gearSrLabel.style.cssText = 'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0';
+      gearSrLabel.textContent = 'Mail to Chat Einstellungen';
+      gear.appendChild(gearSrLabel);
       gear.style.cssText = [
         'width:28px', 'height:28px', 'border-radius:50%', 'border:none',
         'background:rgba(128,128,128,0.16)', 'color:inherit', 'font-size:14px',
@@ -970,18 +976,21 @@ function injectGlobalCss(): void {
   const s = document.createElement('style');
   s.id = 'chatmail-global-css';
   // Pulsieren des Switch-Tracks während Lade-Zustand + sofortiger Custom-Tooltip (kein Browser-Delay)
+  // Gemeinsamer Tooltip-Selektor für Toggle-Switch + Gear (identisches Verhalten)
+  const TT = '#chatmail-toggle-tb,#chatmail-settings-btn';
   s.textContent = [
     '@keyframes chatmail-pulse{0%,100%{opacity:0.5}50%{opacity:0.22}}',
-    // data-tooltip → sofortiger Tooltip via ::after (0.08s Fade, kein 800ms Browser-Delay)
-    '#chatmail-toggle-tb{position:relative;}',
-    '#chatmail-toggle-tb[data-tooltip]::after{',
+    // position:relative auf beiden Buttons → ::after kann absolut positioniert werden
+    `${TT}{position:relative;}`,
+    // data-tooltip → sofortiger Tooltip (0.08s Fade, kein 800ms Browser-Delay via title)
+    `${TT}[data-tooltip]::after{`,
     'content:attr(data-tooltip);position:absolute;top:calc(100% + 8px);left:50%;',
     'transform:translateX(-50%);white-space:nowrap;',
     'background:rgba(15,15,15,0.92);color:#fff;padding:5px 10px;border-radius:6px;',
     'font-size:11.5px;font-weight:500;pointer-events:none;',
     'opacity:0;transition:opacity 0.08s ease;z-index:99999;',
     'box-shadow:0 2px 8px rgba(0,0,0,0.30);}',
-    '#chatmail-toggle-tb:hover[data-tooltip]::after{opacity:1;}',
+    `${TT}:hover[data-tooltip]::after{opacity:1;}`,
   ].join('');
   document.head.appendChild(s);
 }

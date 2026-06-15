@@ -139,7 +139,24 @@ export function buildSkinCss(skin: ChatSettings['gmailSkin']): string {
        html.cm-skin .aDh [role="button"]:not([id*="chatmail"]):not(.T-I-KE):hover,
        html.cm-skin .aDh button:not([id*="chatmail"]):not(.T-I-KE):hover,
        html.cm-skin .aJ6 [role="button"]:not([id*="chatmail"]):not(.T-I-KE):hover,
-       html.cm-skin [role="toolbar"]:not([gh]) [role="button"]:not([id*="chatmail"]):not(.T-I-KE):hover { background: rgba(255,255,255,0.10) !important; border-radius: 4px; }`
+       html.cm-skin [role="toolbar"]:not([gh]) [role="button"]:not([id*="chatmail"]):not(.T-I-KE):hover { background: rgba(255,255,255,0.10) !important; border-radius: 4px; }
+
+       /* 10. Compose/Reply-Fenster: Oberfläche + Editor-Hintergrund
+          Kernproblem: Gmail setzt auf .aDh und dem Compose-Textfeld weiße Hintergründe.
+          Ohne diese Regel: Regel-9-Icons sind weiß (korrekt), aber auf weißem Hintergrund
+          = unsichtbar. Lösung: Hintergründe auf ${surface} setzen.
+          .Am.Al / .Am.Al.editable = Gmails stabiler Compose-Wrapper + Editor-Element
+          [g_editable="true"] = proprietäres Gmail-Attribut direkt am Textfeld
+          Selektoren für aria-label decken lokalisierte Compose-Felder (DE + EN) ab. */
+       html.cm-skin .aDh { background: ${surface} !important; }
+       html.cm-skin .aDh *:not([id*="chatmail"]):not(.T-I-KE) { color: ${text} !important; }
+       html.cm-skin .Am.Al,
+       html.cm-skin .Am.Al.editable,
+       html.cm-skin [g_editable="true"],
+       html.cm-skin div[aria-label="Nachrichtentext"],
+       html.cm-skin div[aria-label="Message Body"] { background: ${surface} !important; color: ${text} !important; }
+       /* Kindknoten: geerbte weiße backgrounds wegräumen, ohne Inline-Formatierungen zu zerstören */
+       html.cm-skin .Am.Al > div { background-color: transparent !important; }`
     : '';
   return `
 /* Grundflächen */
