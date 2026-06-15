@@ -141,13 +141,46 @@ export function buildSkinCss(skin: ChatSettings['gmailSkin']): string {
        html.cm-skin .aJ6 [role="button"]:not([id*="chatmail"]):not(.T-I-KE):hover,
        html.cm-skin [role="toolbar"]:not([gh]) [role="button"]:not([id*="chatmail"]):not(.T-I-KE):hover { background: rgba(255,255,255,0.10) !important; border-radius: 4px; }
 
-       /* 10. Compose/Reply-Fenster: Oberfläche + Editor-Hintergrund
-          Kernproblem: Gmail setzt auf .aDh und dem Compose-Textfeld weiße Hintergründe.
-          Ohne diese Regel: Regel-9-Icons sind weiß (korrekt), aber auf weißem Hintergrund
-          = unsichtbar. Lösung: Hintergründe auf ${surface} setzen.
-          .Am.Al / .Am.Al.editable = Gmails stabiler Compose-Wrapper + Editor-Element
-          [g_editable="true"] = proprietäres Gmail-Attribut direkt am Textfeld
-          Selektoren für aria-label decken lokalisierte Compose-Felder (DE + EN) ab. */
+       /* 10. Compose/Reply-Fenster v2 — Drei-Ebenen-Strategie (v1.4.5)
+          Problem: .aDh-Klasse kann von Gmail umbenannt werden (obfuskiert) → reine
+          Klassen-Selektoren versagen wenn Gmail DOM ändert. Compose-Container hat weiße
+          Hintergründe, die ohne Skin-Overrides auf weißen Regel-9-Icons liegen.
+          Lösung: Mehrfach-Redundanz via Klassen + Struktur + :has()-Anker.
+
+          SCHICHTUNG (Chrome ≥105 mit :has()):
+            a) [role="listitem"]:has([g_editable]) → bg=${bg} → nahtlose Ecken, kein Cutoff
+            b) Direkte Wrapper-Divs (2 Ebenen) → transparent → zeigt bg durch
+            c) Spezifische Elemente mit hoher Spezifität (058 > 043) → surface
+               WICHTIG: Diese Selektoren müssen spezifischer sein als (b) damit !important-
+               Regeln von (c) über (b) gewinnen. Berechnung: :has-Kontext + Klasse ≥ 5 b-Tokens.
+            d) Struktureller Fallback: [role="toolbar"]:not([gh]) in [role="list"] → surface
+               (funktioniert auch wenn .aDh umbenannt, solange role="toolbar" bleibt)
+
+          Firefox <121 (Min v115): :has() unknown → Stufen a–c werden ignoriert.
+          Fallback-Selektoren ohne :has() (e) greifen dort stattdessen. */
+
+       /* a) Compose-Container → outer bg für nahtlose Eckintegration */
+       html.cm-skin [role="list"] > [role="listitem"]:has([g_editable]) { background: ${bg} !important; }
+
+       /* b) Oberste Wrapper-Divs → transparent (erbt bg vom Listitem) */
+       html.cm-skin [role="list"] > [role="listitem"]:has([g_editable]) > div,
+       html.cm-skin [role="list"] > [role="listitem"]:has([g_editable]) > div > div { background: transparent !important; }
+
+       /* c) Spezifische Elemente mit :has()-Kontext → schlägt (b) (058 > 043) */
+       html.cm-skin [role="list"] > [role="listitem"]:has([g_editable]) .aDh,
+       html.cm-skin [role="list"] > [role="listitem"]:has([g_editable]) .Am.Al,
+       html.cm-skin [role="list"] > [role="listitem"]:has([g_editable]) .Am.Al.editable,
+       html.cm-skin [role="list"] > [role="listitem"]:has([g_editable]) [g_editable="true"],
+       html.cm-skin [role="list"] > [role="listitem"]:has([g_editable]) [aria-label="Nachrichtentext"],
+       html.cm-skin [role="list"] > [role="listitem"]:has([g_editable]) [aria-label="Message Body"] { background: ${surface} !important; color: ${text} !important; }
+
+       /* d) Strukturell: [role="toolbar"]:not([gh]) in Thread-Bereich → surface
+          Funktioniert unabhängig von obfuszierten Gmail-Klassen (.aDh Umbenennung) */
+       html.cm-skin [role="list"] [role="toolbar"]:not([gh]) { background: ${surface} !important; }
+       html.cm-skin [role="list"] [role="toolbar"]:not([gh]) *:not([id*="chatmail"]):not(.T-I-KE) { color: ${text} !important; }
+       html.cm-skin [role="list"] > [role="listitem"]:has([g_editable]) [role="toolbar"]:not([gh]) { background: ${surface} !important; }
+
+       /* e) Firefox-Fallback (kein :has()) — Klassen-Selektoren ohne Kontext */
        html.cm-skin .aDh { background: ${surface} !important; }
        html.cm-skin .aDh *:not([id*="chatmail"]):not(.T-I-KE) { color: ${text} !important; }
        html.cm-skin .Am.Al,
@@ -155,7 +188,6 @@ export function buildSkinCss(skin: ChatSettings['gmailSkin']): string {
        html.cm-skin [g_editable="true"],
        html.cm-skin div[aria-label="Nachrichtentext"],
        html.cm-skin div[aria-label="Message Body"] { background: ${surface} !important; color: ${text} !important; }
-       /* Kindknoten: geerbte weiße backgrounds wegräumen, ohne Inline-Formatierungen zu zerstören */
        html.cm-skin .Am.Al > div { background-color: transparent !important; }`
     : '';
   return `

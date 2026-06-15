@@ -968,31 +968,38 @@ function injectToolbarButton(deps: AdapterDeps): void {
 
 
 /**
- * Injiziert globale Animations-Keyframes einmalig in <head>.
- * Idempotent durch ID-Guard — sicher bei mehrfachem Aufruf.
+ * Injiziert/aktualisiert globale CSS-Regeln in <head>.
+ * UPSERT-Pattern (kein Early-Return): Aktualisiert auch nach Extension-Reload
+ * ohne Tab-Refresh — verhindert Stale-CSS von alten Instanzen.
+ *
+ * KRITISCH: Kein Template-Variable-Komma-Bug bei ::after-Selektoren!
+ * "a,b[data-tooltip]::after" wird von CSS als ZWEI Selektoren geparst:
+ *   1. "a"                     → würde pointer-events:none auf den Button SELBST setzen → unklickbar!
+ *   2. "b[data-tooltip]::after" → korrekt
+ * Fix: jeden Selektor explizit mit ::after ausschreiben — kein geteilter Selektor via Variable.
  */
 function injectGlobalCss(): void {
-  if (document.getElementById('chatmail-global-css')) return;
-  const s = document.createElement('style');
-  s.id = 'chatmail-global-css';
-  // Pulsieren des Switch-Tracks während Lade-Zustand + sofortiger Custom-Tooltip (kein Browser-Delay)
-  // Gemeinsamer Tooltip-Selektor für Toggle-Switch + Gear (identisches Verhalten)
-  const TT = '#chatmail-toggle-tb,#chatmail-settings-btn';
+  let s = document.getElementById('chatmail-global-css') as HTMLStyleElement | null;
+  if (!s) {
+    s = document.createElement('style');
+    s.id = 'chatmail-global-css';
+    document.head.appendChild(s);
+  }
   s.textContent = [
+    // Puls-Animation für Loading-State des Switch-Tracks
     '@keyframes chatmail-pulse{0%,100%{opacity:0.5}50%{opacity:0.22}}',
-    // position:relative auf beiden Buttons → ::after kann absolut positioniert werden
-    `${TT}{position:relative;}`,
-    // data-tooltip → sofortiger Tooltip (0.08s Fade, kein 800ms Browser-Delay via title)
-    `${TT}[data-tooltip]::after{`,
+    // position:relative auf beiden Buttons (Basis für absolut-positioniertes ::after)
+    '#chatmail-toggle-tb,#chatmail-settings-btn{position:relative;}',
+    // Custom-Tooltip: jeder Selektor hat sein eigenes ::after — kein Komma-Selektor-Bug
+    '#chatmail-toggle-tb[data-tooltip]::after,#chatmail-settings-btn[data-tooltip]::after{',
     'content:attr(data-tooltip);position:absolute;top:calc(100% + 8px);left:50%;',
     'transform:translateX(-50%);white-space:nowrap;',
     'background:rgba(15,15,15,0.92);color:#fff;padding:5px 10px;border-radius:6px;',
     'font-size:11.5px;font-weight:500;pointer-events:none;',
     'opacity:0;transition:opacity 0.08s ease;z-index:99999;',
     'box-shadow:0 2px 8px rgba(0,0,0,0.30);}',
-    `${TT}:hover[data-tooltip]::after{opacity:1;}`,
+    '#chatmail-toggle-tb:hover[data-tooltip]::after,#chatmail-settings-btn:hover[data-tooltip]::after{opacity:1;}',
   ].join('');
-  document.head.appendChild(s);
 }
 
 /** Einstieg: beobachtet Gmail (SPA) und verdrahtet Button + Shortcut. */
