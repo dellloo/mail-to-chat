@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Mail to Chat",
-  "version": "1.4.6",
+  "version": "1.4.7",
   "description": "Verwandelt E-Mail-Threads per Klick in eine übersichtliche Chat-Ansicht. 100% lokal — keine Daten verlassen dein Gerät.",
   "permissions": ["storage"],
   "background": {
