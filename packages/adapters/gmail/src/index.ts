@@ -871,6 +871,11 @@ function injectToolbarButton(deps: AdapterDeps): void {
       btn.style.transform = 'scale(1)';
     });
     btn.addEventListener('click', () => void toggle(deps));
+    // P0.2: Sofort sichtbarer Label — verhindert leeren Button-Flash bevor
+    // updateButtonLabel(deps) (async, getSettings) zurückkommt.
+    // Sprache wird danach korrekt gesetzt; DE-Fallback ist immer akzeptabel.
+    btn.innerHTML = `${ICONS.mail}<span>${LABELS.de.inactive}</span>`;
+    btn.title = LABELS.de.tooltipOff;
     grp.appendChild(btn);
     // Einstellungs-Zahnrad (nur wenn openSettings vorhanden)
     if (deps.openSettings) {
@@ -1029,13 +1034,22 @@ export function initGmailAdapter(deps: AdapterDeps): void {
               retryActivationCount = 0; // NASA: Reset nach Erfolg
             } else if (retryActivationCount < MAX_ACTIVATION_RETRIES) {
               // NASA: Redundanter Aktivierungs-Pfad — bounded retry
-              // Gmail rendert div.adn manchmal nach check(). Statt ewig zu pollen
-              // (unbounded), planen wir max. MAX_ACTIVATION_RETRIES Versuche.
+              // Gmail rendert div.adn manchmal nach check(). Primärer Pfad:
+              // gezielter MutationObserver der SOFORT reagiert sobald div.adn erscheint.
+              // Sekundärer Pfad: 400ms Safety-Timer als Fallback (falls Observer es verpasst).
               retryActivationCount++;
-              log(`autoActivate Retry ${retryActivationCount}/${MAX_ACTIVATION_RETRIES} in 400ms...`);
-              setTimeout(() => {
+              log(`autoActivate Retry ${retryActivationCount}/${MAX_ACTIVATION_RETRIES} — warte auf div.adn...`);
+              const retryOnce = (): void => {
+                retryObs.disconnect();
                 if (!state.active && isStillOwner()) scheduleCheck();
-              }, 400);
+              };
+              const retryObs = new MutationObserver(() => {
+                if (!isStillOwner()) { retryObs.disconnect(); return; }
+                if (getMessageNodes().length > 0) retryOnce();
+              });
+              retryObs.observe(document.body, { childList: true, subtree: true });
+              // Safety-Timer: nach 400ms auf jeden Fall versuchen (Observer als Backup)
+              setTimeout(retryOnce, 400);
             } else {
               retryActivationCount = 0;
               log('autoActivate: maximale Retries erreicht — warte auf nächste Gmail-Mutation.');
