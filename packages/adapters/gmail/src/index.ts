@@ -57,6 +57,19 @@ const LABELS = {
   },
 };
 
+// ---- Per-Thread-Einstellungen ------------------------------------------------
+/** Storage-Key für Thread-spezifische Ansichts-Präferenzen. */
+const THREAD_PREFS_KEY = 'chatmail-thread-prefs';
+type ThreadMode = 'classic' | 'chat';
+type ThreadPrefs = Record<string, ThreadMode>;
+
+/**
+ * Referenz auf scheduleCheck() aus initGmailAdapter — wird dort gesetzt.
+ * Ermöglicht Context-Menu-Actions (Thread-Pref ändern) sofortiges Re-Check
+ * ohne dass showThreadContextMenu() Closure-Zugriff auf scheduleCheck braucht.
+ */
+let scheduleCheckRef: (() => void) | null = null;
+
 /** Kontext für das WhatsApp-Style-Banner über dem Gmail-Editor. */
 let pendingCtx: { label: string; preview: string; time?: string } | null = null;
 
@@ -529,6 +542,122 @@ function findSendButton(): HTMLElement | null {
   );
 }
 
+// ---- Per-Thread-Einstellungen: Hilfs-Funktionen ------------------------------
+
+/**
+ * Thread-ID aus der Gmail-URL extrahieren.
+ * Gmail-URL-Muster: #inbox/18f8d3a2b5c6e7f8, #sent/..., #label/Name/...
+ * Die Thread-ID ist immer das letzte Segment des URL-Hashes (genau 16 Hex-Zeichen).
+ * @public Exportiert für Unit-Tests.
+ */
+export function getThreadId(): string | null {
+  const hash = typeof location !== 'undefined' ? location.hash : '';
+  const parts = hash.split('/');
+  const last = parts[parts.length - 1] ?? '';
+  return /^[0-9a-f]{16}$/.test(last) ? last : null;
+}
+
+async function loadThreadPrefs(): Promise<ThreadPrefs> {
+  try {
+    const r = await chrome.storage.sync.get(THREAD_PREFS_KEY);
+    return (r[THREAD_PREFS_KEY] as ThreadPrefs | undefined) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+async function saveThreadPref(threadId: string, mode: ThreadMode | null): Promise<void> {
+  try {
+    const prefs = await loadThreadPrefs();
+    if (mode === null) {
+      delete prefs[threadId];
+    } else {
+      prefs[threadId] = mode;
+    }
+    await chrome.storage.sync.set({ [THREAD_PREFS_KEY]: prefs });
+  } catch {
+    /* Storage nicht verfügbar — kein Abbruch, Pref geht verloren */
+  }
+}
+
+/**
+ * Benutzerdefiniertes Kontextmenü am Toggle-Button (Rechtsklick).
+ * Kein chrome.contextMenus nötig — reines HTML/CSS, komplett isoliert von Gmail.
+ * Zeigt Thread-spezifische Ansichts-Optionen + (optional) Einstellungen.
+ */
+function showThreadContextMenu(
+  x: number,
+  y: number,
+  threadId: string | null,
+  currentPref: ThreadMode | undefined,
+  openSettings?: () => void,
+): void {
+  document.getElementById('chatmail-ctx-menu')?.remove();
+  const menu = document.createElement('div');
+  menu.id = 'chatmail-ctx-menu';
+
+  const addItem = (label: string, cls: string, cb: () => void): void => {
+    const btn = document.createElement('button');
+    if (cls) btn.className = cls;
+    btn.textContent = label;
+    btn.addEventListener('click', () => { menu.remove(); cb(); });
+    menu.appendChild(btn);
+  };
+  const addSep = (): void => {
+    const d = document.createElement('div');
+    d.className = 'cm-ctx-sep';
+    menu.appendChild(d);
+  };
+  const addHint = (t: string): void => {
+    const d = document.createElement('div');
+    d.className = 'cm-ctx-hint';
+    d.textContent = t;
+    menu.appendChild(d);
+  };
+
+  addHint('Mail to Chat');
+
+  if (threadId) {
+    const applyPref = (mode: ThreadMode | null): void => {
+      void saveThreadPref(threadId, mode).then(() => {
+        sessionMode = null; // Session-Override freigeben → Pref greift sofort
+        scheduleCheckRef?.();
+      });
+    };
+    if (currentPref === 'classic') {
+      addItem('✓ Immer klassisch (gesetzt)', 'cm-ctx-active', () => applyPref(null));
+      addItem('Chat-Ansicht für diese Mail', '', () => applyPref('chat'));
+    } else if (currentPref === 'chat') {
+      addItem('✓ Immer Chat (gesetzt)', 'cm-ctx-active', () => applyPref(null));
+      addItem('Klassisch für diese Mail', '', () => applyPref('classic'));
+    } else {
+      addItem('Diese Mail immer klassisch', '', () => applyPref('classic'));
+      addItem('Diese Mail immer als Chat', '', () => applyPref('chat'));
+    }
+    addSep();
+  }
+
+  if (openSettings) {
+    addItem('Einstellungen…', '', openSettings);
+  }
+
+  document.body.appendChild(menu);
+  // Overflow-Guard: Menü darf nicht aus dem Viewport ragen
+  const rect = menu.getBoundingClientRect();
+  menu.style.left = `${Math.min(x, window.innerWidth - rect.width - 8)}px`;
+  menu.style.top = `${Math.min(y, window.innerHeight - rect.height - 8)}px`;
+
+  // Click außerhalb → Menü schließen
+  const dismiss = (e: MouseEvent): void => {
+    if (!menu.contains(e.target as Node)) {
+      menu.remove();
+      document.removeEventListener('click', dismiss, true);
+    }
+  };
+  // setTimeout 0: verhindert dass das contextmenu-Event selbst dismiss auslöst
+  setTimeout(() => document.addEventListener('click', dismiss, true), 0);
+}
+
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -905,6 +1034,14 @@ function injectToolbarButton(deps: AdapterDeps): void {
     });
     btn.addEventListener('mouseleave', () => { btn.style.background = 'transparent'; });
     btn.addEventListener('click', () => void toggle(deps));
+    // Rechtsklick → Thread-spezifische Ansichts-Pref (immer klassisch / immer Chat)
+    btn.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const tid = getThreadId();
+      void (tid ? loadThreadPrefs() : Promise.resolve({} as ThreadPrefs)).then((prefs) => {
+        showThreadContextMenu(e.clientX, e.clientY, tid, tid ? prefs[tid] : undefined, deps.openSettings);
+      });
+    });
 
     // Switch-Track: Rundrechteck, Farbe zeigt Zustand
     const track = document.createElement('div');
@@ -1003,6 +1140,17 @@ function injectGlobalCss(): void {
     'opacity:0;transition:opacity 0.08s ease;z-index:99999;',
     'box-shadow:0 2px 8px rgba(0,0,0,0.30);}',
     '#chatmail-toggle-tb:hover[data-cmtt]::after,#chatmail-settings-btn:hover[data-cmtt]::after{opacity:1;}',
+    // Context-Menu (Rechtsklick am Toggle-Button)
+    '#chatmail-ctx-menu{position:fixed;z-index:2147483647;background:#222;',
+    'border:1px solid rgba(255,255,255,0.13);border-radius:10px;padding:5px 0;',
+    'min-width:230px;box-shadow:0 6px 24px rgba(0,0,0,0.45);',
+    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;}',
+    '#chatmail-ctx-menu button{display:block;width:100%;text-align:left;background:none;',
+    'border:none;padding:9px 16px;color:#e8eaed;cursor:pointer;border-radius:6px;transition:background 0.1s;}',
+    '#chatmail-ctx-menu button:hover{background:rgba(255,255,255,0.10);}',
+    '#chatmail-ctx-menu .cm-ctx-sep{height:1px;background:rgba(255,255,255,0.10);margin:4px 0;}',
+    '#chatmail-ctx-menu .cm-ctx-active{color:#f2c200;}',
+    '#chatmail-ctx-menu .cm-ctx-hint{font-size:11.5px;padding:5px 16px 8px;color:rgba(255,255,255,0.45);}',
   ].join('');
 }
 
@@ -1050,6 +1198,8 @@ export function initGmailAdapter(deps: AdapterDeps): void {
       void runCheck();
     }, 50);
   };
+  // Modul-Level-Referenz für Context-Menu-Actions (showThreadContextMenu)
+  scheduleCheckRef = scheduleCheck;
 
   const runCheck = async (): Promise<void> => {
     // Vor jedem Lauf pruefen - ein neuerer Start koennte zwischenzeitlich
@@ -1083,8 +1233,10 @@ export function initGmailAdapter(deps: AdapterDeps): void {
     if (key !== lastThreadKey) {
       // Threadwechsel: alten Zustand verwerfen (Toolbar-Gruppe bleibt, Chat-View weg)
       lastThreadKey = key;
-      retryActivationCount = 0; // NASA: Reset Retry-Counter bei Thread-Wechsel
+      retryActivationCount = 0;  // NASA: Reset Retry-Counter bei Thread-Wechsel
       activationGaveUp = false;  // NASA: Retry-Sperre aufheben bei Thread-Wechsel
+      sessionMode = null;         // Session-Override nicht in nächsten Thread übertragen —
+      //   Thread-Prefs (storage) und autoActivate (settings) bestimmen den neuen Modus
       deactivate();
     }
     injectToolbarButton(deps); // Leisten-Toggle in allen Ansichten (Inbox, Suche, Spam, ...)
@@ -1108,10 +1260,13 @@ export function initGmailAdapter(deps: AdapterDeps): void {
         }
       }
       if (!state.active) {
-        const settings = await deps.getSettings();
-        // Chat-Modus: Session-Override (Button-Klick) schlaegt Storage -
-        // greift sofort und auch bei totem Extension-Kontext.
-        const mode = sessionMode ?? settings.autoActivate;
+        const [settings, threadPrefs] = await Promise.all([deps.getSettings(), loadThreadPrefs()]);
+        const currThreadId = getThreadId();
+        const threadPref = currThreadId ? threadPrefs[currThreadId] : undefined;
+        // Priorität: sessionMode (Klick) > Thread-Pref (Storage, pro Mail) > autoActivate (global)
+        // Thread-Pref: "immer klassisch" = false, "immer Chat" = true, kein Pref = autoActivate
+        const effectiveAuto = threadPref === 'classic' ? false : threadPref === 'chat' ? true : settings.autoActivate;
+        const mode = sessionMode ?? effectiveAuto;
         // Doppelte Absicherung nach dem await:
         //   (a) !state.active  - toggle() koennte inzwischen aktiviert haben
         //   (b) !activating    - toggle().activate() laeuft noch
@@ -1217,7 +1372,7 @@ export function initGmailAdapter(deps: AdapterDeps): void {
   // Script-Instanz im DOM - deren Klick-Listener sind verwaist. Ohne Aufraeumen
   // wuerde diese Instanz die Injektion ueberspringen (ID existiert ja schon)
   // und der Nutzer klickt ins Leere. Also: alle Reste entfernen, frisch setzen.
-  for (const id of [BTN_ID, GROUP_ID, TB_ID, GEAR_ID, 'chatmail-reply-ctx']) {
+  for (const id of [BTN_ID, GROUP_ID, TB_ID, GEAR_ID, 'chatmail-reply-ctx', 'chatmail-ctx-menu']) {
     const orphan = document.getElementById(id);
     if (orphan) {
       orphan.remove();
@@ -1256,11 +1411,13 @@ export function initGmailAdapter(deps: AdapterDeps): void {
   };
   (window as Window & { __chatmailDebug?: DbgHandle }).__chatmailDebug = {
     get state() {
+      const tid = getThreadId();
       return {
         active: state.active,
         activating,
         toggling,
         sessionMode,
+        threadId: tid,
         lastThreadKey,
         retryActivationCount,
         composeMode: state.composeMode,

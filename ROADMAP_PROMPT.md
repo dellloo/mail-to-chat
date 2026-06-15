@@ -9,7 +9,7 @@
 
 **Produkt:** Chrome Extension (MV3) + Firefox (MV2). Monorepo: `packages/core`, `packages/ui`, `packages/adapters/gmail`, `apps/chrome-ext`, `apps/firefox-ext`. TypeScript strict, esbuild, Vitest (94 Tests).
 
-**Aktuell stabile Version:** v1.4.7
+**Aktuell stabile Version:** v1.5.0
 
 **Was funktioniert:**
 
@@ -18,6 +18,7 @@
 - Chat-View mit Shadow DOM, 12 Themes, Bubble-Tails, Avatare, Datums-Trenner
 - Gmail-Skin-Engine (Bumblebee, Discord Dark, WhatsApp Night, Telegram, Clean Light, Slack)
 - autoActivate: ON by default — jede Mail öffnet automatisch als Chat
+- **Per-Mail Opt-Out (v1.5.0):** Rechtsklick auf Toggle → "Diese Mail immer klassisch / immer als Chat". Pref in `chrome.storage.sync` (16-Hex-Thread-ID). Priorität: sessionMode > Thread-Pref > autoActivate. sessionMode resettet bei Thread-Wechsel.
 - Spam-Click-Guard (kein Hang bei schnellen Klicks), Loading-State pulsiert den Track
 - Heartbeat-Timer (3s) als Dead-man's-Switch + Generation-Counter gegen Zombie-Instanzen
 - NASA-Retry-Logik bei autoActivate (8 Retries × 400ms + MutationObserver)
@@ -28,10 +29,10 @@
 - Reply-Kontext (WhatsApp-Style-Banner über dem Editor)
 - Message-Grouping (visuelle Gruppierung zusammengehöriger Nachrichten)
 - Compose/Reply-Inline-Fix: Schreiben-Popup (neues Fenster) triggert nicht mehr Compose-Mode
-- Compose-Toolbar Icons im Dark Mode via Nuclear-Fix (brightness(0)invert(1) direkt auf Element)
+- Compose bleibt weiß (Card-Pattern) auf Dark-Skins — intentional sauber statt partiell-dunkel
 - Fade-in Animation (opacity 0→1, 150ms) beim Aktivieren der Chat-Ansicht
 - Keyboard Shortcut Alt+C (Win/Linux) / Option+C (Mac)
-- Debug-Handle `window.__chatmailDebug.dump()` (Konsole F12)
+- Debug-Handle `window.__chatmailDebug.dump()` (inkl. threadId, Konsole F12)
 - Anhang-Cache-Strategie: Medien überleben das Einklappen von Mails (sessionStorage)
 
 ---
@@ -83,29 +84,27 @@ Problem soll nie neu analysiert werden müssen.
 
 ## 3. Offene Baustellen
 
-### P1 — Hoch (nächste Version)
+### P1 — Hoch
 
-#### 3.1 Compose-Fenster visuell verifizieren (v1.4.5 — bitte testen)
+#### 3.1 Compose-Fenster: Card-Pattern (v1.4.7 — erledigt ✓)
 
-**Status:** Drei-Ebenen-Fix in v1.4.5 implementiert. Nach Extension-Reload Tab refreshen!
-**Was:** 
-- Rule 10 v2: `:has([g_editable])` auf Listitem → `bg=${bg}` (nahtlose Ecken, kein Cutoff)
-- `[role="toolbar"]:not([gh])` in `[role="list"]` → struktureller Fallback für Toolbar-Background
-  (funktioniert auch wenn Gmail `.aDh` umbenennt)
-- Wrapper-Divs transparent (Spezifität sauber: 043 < 058)
-**Action:** Discord-Dark-Skin aktivieren → Reply-Thread öffnen → prüfen:
-  - Toolbar-Hintergrund dunkel? Icons (B, I, U, Emoji, Attach) weiß auf dunklem Grund?
-  - Compose-Textbereich dunkel?
-  - Ecken des Compose-Bereichs: nahtlos statt abgeschnitten?
+**Status:** Gelöst in v1.4.7. Compose bleibt bewusst weiß (Card-Pattern) auf Dark-Skins.
+Partiell-dunkel (nur Toolbar oder nur Textfeld) sah schlechter aus als konsistent weiß.
+Einzige CSS-Regel: Listitem-Container bekommt `bg` für nahtlose Ecken. Kein action needed.
 
 ---
 
-### P2 — Mittel
+### P2 — Mittel (nächste Version)
 
-#### 3.3 Per-Mail Opt-Out
+#### 3.3 Per-Mail Opt-Out (v1.5.0 — erledigt ✓)
 
-**Was:** Rechtsklick auf den Toggle → Kontextmenü: "Diese Mail immer klassisch anzeigen".
-**Impl:** Whitelist/Blacklist nach Thread-ID in `chrome.storage.sync`. Thread-ID aus Gmail-URL.
+**Was:** Rechtsklick auf Toggle → custom HTML Context-Menu (kein chrome.contextMenus):
+- "Diese Mail immer klassisch" / "Diese Mail immer als Chat" (je nach aktuellem Pref)
+- Pref in `chrome.storage.sync` unter Key `chatmail-thread-prefs` (Record<threadId, mode>)
+- Thread-ID = letzter 16-Hex-Segment des Gmail-URL-Hash (`getThreadId()`, exportiert + getestet)
+- sessionMode resettet bei Thread-Wechsel → Thread-Pref greift sofort
+- Priorität: sessionMode (Klick) > Thread-Pref > autoActivate (global)
+- debug: `window.__chatmailDebug.state.threadId` zeigt aktive Thread-ID
 
 #### 3.4 Smart Quote-Collapse
 
