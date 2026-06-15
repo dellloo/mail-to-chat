@@ -97,17 +97,49 @@ export function buildSkinCss(skin: ChatSettings['gmailSkin']): string {
        html.cm-skin .a3s a, html.cm-skin .a3s a * { color: #8ab4f8 !important; background: transparent !important; }
        html.cm-skin .ii.gt { background: transparent !important; }
 
-       /* 9. Compose/Reply-Toolbar Icons (Formatierung, Emoji, Anhang, etc.)
-          .aDh = Gmail Compose-Formatierungs-Toolbar (stabil)
-          [role="toolbar"]:not([gh]) = alle weiteren Toolbars ausser Hauptleiste */
-       html.cm-skin .aDh [role="button"]:not([id*="chatmail"]),
-       html.cm-skin [role="toolbar"]:not([gh]) [role="button"]:not([id*="chatmail"]):not(.T-I-KE) { color: ${text} !important; opacity: 1 !important; }
-       html.cm-skin .aDh [role="button"]:not([id*="chatmail"]) > *,
-       html.cm-skin .aDh [role="button"]:not([id*="chatmail"]) > * > *,
+       /* 9. Compose/Reply-Toolbar Icons — Nuclear Fix v2
+          Problem: Gmail nutzt CSS mask-image (nicht SVG) für viele Compose-Icons.
+          filter muss DIREKT auf das Element wirken (mask-image reagiert nur auf
+          element-eigenen filter, nicht auf Parent-filter oder color/fill).
+          Idempotenz: brightness(0)invert(1) ist self-inverse — Doppel-Anwendung
+          auf Button+Kind ist sicher und ändert das Ergebnis nicht.
+          Drei Angriffspunkte:
+            .aDh  = Formatierungs-Toolbar (Bold/Italic/Font/Fontsize/…)
+            .aJ6  = Action-Row-Toolbar (Emoji/Attach/Link/Drive/Photo/…)
+            [role="toolbar"]:not([gh]) = alle weiteren Toolbars ausser Hauptleiste */
+
+       /* background:transparent VOR filter — verhindert Hintergrundfarb-Inversion */
+       html.cm-skin .aDh [role="button"]:not([id*="chatmail"]):not(.T-I-KE),
+       html.cm-skin .aDh button:not([id*="chatmail"]):not(.T-I-KE),
+       html.cm-skin .aJ6 [role="button"]:not([id*="chatmail"]):not(.T-I-KE),
+       html.cm-skin .aJ6 button:not([id*="chatmail"]):not(.T-I-KE),
+       html.cm-skin [role="toolbar"]:not([gh]) [role="button"]:not([id*="chatmail"]):not(.T-I-KE),
+       html.cm-skin [role="toolbar"]:not([gh]) button:not([id*="chatmail"]):not(.T-I-KE) { color: ${text} !important; background: transparent !important; }
+
+       /* filter direkt auf Button (mask-image) + Kinder (SVG/img) — 2-Wege-Absicherung */
+       html.cm-skin .aDh [role="button"]:not([id*="chatmail"]):not(.T-I-KE),
+       html.cm-skin .aDh button:not([id*="chatmail"]):not(.T-I-KE),
+       html.cm-skin .aDh [role="button"]:not([id*="chatmail"]):not(.T-I-KE) > *,
+       html.cm-skin .aDh [role="button"]:not([id*="chatmail"]):not(.T-I-KE) > * > *,
+       html.cm-skin .aDh button:not([id*="chatmail"]):not(.T-I-KE) > *,
+       html.cm-skin .aDh button:not([id*="chatmail"]):not(.T-I-KE) > * > *,
+       html.cm-skin .aJ6 [role="button"]:not([id*="chatmail"]):not(.T-I-KE),
+       html.cm-skin .aJ6 button:not([id*="chatmail"]):not(.T-I-KE),
+       html.cm-skin .aJ6 [role="button"]:not([id*="chatmail"]):not(.T-I-KE) > *,
+       html.cm-skin .aJ6 [role="button"]:not([id*="chatmail"]):not(.T-I-KE) > * > *,
+       html.cm-skin .aJ6 button:not([id*="chatmail"]):not(.T-I-KE) > *,
+       html.cm-skin [role="toolbar"]:not([gh]) [role="button"]:not([id*="chatmail"]):not(.T-I-KE),
+       html.cm-skin [role="toolbar"]:not([gh]) button:not([id*="chatmail"]):not(.T-I-KE),
        html.cm-skin [role="toolbar"]:not([gh]) [role="button"]:not([id*="chatmail"]):not(.T-I-KE) > *,
-       html.cm-skin [role="toolbar"]:not([gh]) [role="button"]:not([id*="chatmail"]):not(.T-I-KE) > * > * { filter: brightness(0) invert(1) !important; }
-       html.cm-skin .aDh [role="button"]:not([id*="chatmail"]):hover,
-       html.cm-skin [role="toolbar"]:not([gh]) [role="button"]:not([id*="chatmail"]):not(.T-I-KE):hover { background: rgba(255,255,255,0.10) !important; border-radius: 8px; }`
+       html.cm-skin [role="toolbar"]:not([gh]) [role="button"]:not([id*="chatmail"]):not(.T-I-KE) > * > *,
+       html.cm-skin [role="toolbar"]:not([gh]) button:not([id*="chatmail"]):not(.T-I-KE) > *,
+       html.cm-skin [role="toolbar"]:not([gh]) button:not([id*="chatmail"]):not(.T-I-KE) > * > * { filter: brightness(0) invert(1) !important; }
+
+       /* Hover-Feedback (filter-safe: brightness(0)invert(1) ist selbst-invers) */
+       html.cm-skin .aDh [role="button"]:not([id*="chatmail"]):not(.T-I-KE):hover,
+       html.cm-skin .aDh button:not([id*="chatmail"]):not(.T-I-KE):hover,
+       html.cm-skin .aJ6 [role="button"]:not([id*="chatmail"]):not(.T-I-KE):hover,
+       html.cm-skin [role="toolbar"]:not([gh]) [role="button"]:not([id*="chatmail"]):not(.T-I-KE):hover { background: rgba(255,255,255,0.10) !important; border-radius: 4px; }`
     : '';
   return `
 /* Grundflächen */

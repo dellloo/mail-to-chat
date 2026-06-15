@@ -810,12 +810,14 @@ async function updateButtonLabel(deps: AdapterDeps): Promise<void> {
     if (track) track.style.background = '#f2c200';
     if (thumb) thumb.style.transform  = 'translateX(16px)';
     if (lbl)   lbl.textContent = labels.active;
-    tb.title = labels.tooltipOn;
+    tb.setAttribute('aria-label', labels.tooltipOn);
+    tb.dataset['tooltip'] = labels.tooltipOn;
   } else {
     if (track) track.style.background = 'rgba(128,128,128,0.35)';
     if (thumb) thumb.style.transform  = 'translateX(0)';
     if (lbl)   lbl.textContent = labels.inactive;
-    tb.title = labels.tooltipOff;
+    tb.setAttribute('aria-label', labels.tooltipOff);
+    tb.dataset['tooltip'] = labels.tooltipOff;
   }
 }
 
@@ -887,14 +889,15 @@ function injectToolbarButton(deps: AdapterDeps): void {
     const btn = document.createElement('button');
     btn.id = TB_ID;
     btn.type = 'button';
-    btn.title = LABELS.de.tooltipOff;
+    btn.setAttribute('aria-label', LABELS.de.tooltipOff);
+    btn.dataset['tooltip'] = LABELS.de.tooltipOff;
     btn.style.cssText = [
       'margin:0', 'padding:4px 10px 4px 8px', 'border:none',
       'background:transparent', 'cursor:pointer',
       'display:inline-flex', 'align-items:center', 'gap:7px',
       'font-family:inherit', 'font-size:12.5px', 'font-weight:600',
       'color:inherit', 'border-radius:6px', 'white-space:nowrap',
-      'transition:background 0.15s',
+      'transition:background 0.15s', 'position:relative',
     ].join(';');
     btn.addEventListener('mouseenter', () => {
       if (btn.style.pointerEvents !== 'none') btn.style.background = 'rgba(128,128,128,0.12)';
@@ -966,8 +969,20 @@ function injectGlobalCss(): void {
   if (document.getElementById('chatmail-global-css')) return;
   const s = document.createElement('style');
   s.id = 'chatmail-global-css';
-  // Pulsieren des Switch-Tracks während Lade-Zustand
-  s.textContent = '@keyframes chatmail-pulse{0%,100%{opacity:0.5}50%{opacity:0.22}}';
+  // Pulsieren des Switch-Tracks während Lade-Zustand + sofortiger Custom-Tooltip (kein Browser-Delay)
+  s.textContent = [
+    '@keyframes chatmail-pulse{0%,100%{opacity:0.5}50%{opacity:0.22}}',
+    // data-tooltip → sofortiger Tooltip via ::after (0.08s Fade, kein 800ms Browser-Delay)
+    '#chatmail-toggle-tb{position:relative;}',
+    '#chatmail-toggle-tb[data-tooltip]::after{',
+    'content:attr(data-tooltip);position:absolute;top:calc(100% + 8px);left:50%;',
+    'transform:translateX(-50%);white-space:nowrap;',
+    'background:rgba(15,15,15,0.92);color:#fff;padding:5px 10px;border-radius:6px;',
+    'font-size:11.5px;font-weight:500;pointer-events:none;',
+    'opacity:0;transition:opacity 0.08s ease;z-index:99999;',
+    'box-shadow:0 2px 8px rgba(0,0,0,0.30);}',
+    '#chatmail-toggle-tb:hover[data-tooltip]::after{opacity:1;}',
+  ].join('');
   document.head.appendChild(s);
 }
 
