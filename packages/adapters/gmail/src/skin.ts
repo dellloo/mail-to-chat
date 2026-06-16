@@ -97,16 +97,17 @@ export function buildSkinCss(skin: ChatSettings['gmailSkin']): string {
        html.cm-skin .a3s a, html.cm-skin .a3s a * { color: #8ab4f8 !important; background: transparent !important; }
        html.cm-skin .ii.gt { background: transparent !important; }
 
-       /* 9. Compose/Reply-Fenster: nahtlose Ecken, Inhalt weiß (Card-Pattern)
-          Entscheidung: Compose-Inhalt bleibt bewusst weiß (Gmail-Default).
-          Partiell-dunkel (nur Toolbar oder nur Textfeld) sieht schlechter aus als
-          konsistent weiß — weißes Compose-Popup auf dunklem Skin-Hintergrund
-          wirkt wie eine Card und ist visuell sauber intentional.
-          Konsequenz: kein filter:brightness(0)invert(1) auf .aDh/.aJ6 —
-          Compose-Icons bleiben dunkel und sind auf weißem Grund sichtbar.
-          Nur der Listitem-Container bekommt bg=${bg} für nahtlose Eckintegration:
-          kein abgeschnittener dunkler Rand um das gerundete Compose-Popup. */
-       html.cm-skin [role="list"] > [role="listitem"]:has([g_editable]) { background: ${bg} !important; }`
+       /* 9. Compose/Reply-Fenster: komplett weiß (Card-Pattern v2).
+          Alle Element-Ebenen (Listitem + 4 Kind-Ebenen) auf #ffffff gesetzt.
+          filter:none verhindert geerbten Dark-Filter aus übergeordneten Skin-Regeln.
+          Compose-Icons (B, I, U, Emoji, Attach ...) sind Gmail-Standard dunkelgrau
+          → auf weißem Grund sichtbar, kein brightness(0)invert(1) nötig.
+          Firefox <121 kennt :has() nicht → graceful degradation (normales Compose). */
+       html.cm-skin [role="list"] > [role="listitem"]:has([g_editable]),
+       html.cm-skin [role="list"] > [role="listitem"]:has([g_editable]) > *,
+       html.cm-skin [role="list"] > [role="listitem"]:has([g_editable]) > * > *,
+       html.cm-skin [role="list"] > [role="listitem"]:has([g_editable]) > * > * > *,
+       html.cm-skin [role="list"] > [role="listitem"]:has([g_editable]) > * > * > * > * { background: #ffffff !important; filter: none !important; }`
     : '';
   return `
 /* Grundflächen */

@@ -85,6 +85,19 @@
       background: var(--bg); color: var(--ink); font: inherit; min-width: 190px;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
+    /* Custom Select: appearance:none → gesamte Fläche anklickbar (kein nativer Browser-Hotspot).
+       Pfeil via background-image, flex:1 = füllt verbleibende Label-Breite aus. */
+    select {
+      appearance: none; -webkit-appearance: none; cursor: pointer; flex: 1;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 6 5-6' stroke='%23666' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 11px center; background-size: 12px 8px;
+      padding-right: 32px;
+    }
+    @media (prefers-color-scheme: dark) {
+      select {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 6 5-6' stroke='%23aaa' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+      }
+    }
     select:focus, input:focus, textarea:focus {
       outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--ring);
     }
@@ -194,6 +207,15 @@
     }
     details.card-adv[open] > summary::after { transform: rotate(90deg); }
     details.card-adv > .adv-body { margin-top: 12px; }
+    /* Accordion open/close — Closing braucht JS (CSS kann display:none nicht animieren) */
+    @keyframes adv-slide-in {
+      from { opacity: 0; transform: translateY(-7px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes adv-slide-out {
+      from { opacity: 1; transform: translateY(0); }
+      to   { opacity: 0; transform: translateY(-7px); }
+    }
     .adv-section { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--line); }
     .adv-section:first-child { margin-top: 8px; padding-top: 0; border-top: none; }
     .adv-section h3 {

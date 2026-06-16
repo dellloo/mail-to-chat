@@ -439,4 +439,27 @@ document.addEventListener('DOMContentLoaded', () => {
     applyOptionsLanguage();
     scheduleSave();
   });
+
+  // Accordion open/close Animation.
+  // CSS-only reicht nicht: beim Schließen verschwindet .adv-body sofort via display:none
+  // bevor die Animation fertig wäre. JS interceptet den Click, führt die Animation aus
+  // und setzt open erst danach.
+  document.querySelectorAll<HTMLDetailsElement>('details.card-adv').forEach((det) => {
+    const summary = det.querySelector('summary');
+    const body = det.querySelector<HTMLElement>('.adv-body');
+    if (!summary || !body) return;
+    summary.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (det.open) {
+        // Schließen: erst ausblenden, dann open=false
+        body.style.animation = 'adv-slide-out 0.18s ease forwards';
+        setTimeout(() => { det.open = false; body.style.animation = ''; }, 175);
+      } else {
+        // Öffnen: open setzen, dann einblenden
+        det.open = true;
+        body.style.animation = 'adv-slide-in 0.22s cubic-bezier(0.22,1,0.36,1) forwards';
+        setTimeout(() => { body.style.animation = ''; }, 250);
+      }
+    });
+  });
 });
