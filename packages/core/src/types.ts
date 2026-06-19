@@ -29,6 +29,17 @@ export interface MessageObject {
    *  (aus der Zitat-Ebene extrahiert). Nur gesetzt, wenn NICHT auf die
    *  unmittelbar vorherige Nachricht geantwortet wurde. */
   replyTo?: { name: string; preview: string; timestamp?: string };
+  /** Eingeklappt darstellbare, weitergeleitete Nachricht innerhalb dieses Bubbles.
+   *  Wird textbasiert aus Forward-Markern erkannt (siehe forwards.ts). */
+  forwarded?: {
+    sender?: string;
+    subject?: string;
+    date?: string;
+    /** Kurzvorschau (Betreff + erster Satz) für den eingeklappten Kopf. */
+    preview: string;
+    /** Voller weitergeleiteter Inhalt als HTML (<br>-getrennt). */
+    bodyHtml: string;
+  };
 }
 
 export type ParserLanguage = 'de' | 'en' | 'fr' | 'es' | 'it';

@@ -16,6 +16,7 @@ const I18N = {
     searchMails: 'Alle Mails dieser Person', noMail: 'E-Mail unbekannt',
     replyOne: 'Auf diese Mail antworten', forwardOne: 'Diese Mail weiterleiten',
     attach: 'Anhang hinzufügen (öffnet Gmail-Editor mit Dateiauswahl)',
+    fwd: 'Weitergeleitet',
   },
   en: {
     showSig: 'Show signature', attachment: 'Attachment', image: 'Image', openOriginal: 'Open original ↗',
@@ -26,6 +27,7 @@ const I18N = {
     searchMails: 'All mails from this person', noMail: 'Email unknown',
     replyOne: 'Reply to this mail', forwardOne: 'Forward this mail',
     attach: 'Add attachment (opens Gmail editor with file picker)',
+    fwd: 'Forwarded',
   },
 };
 
@@ -268,6 +270,19 @@ export function buildCss(settings: ChatSettings): string {
 .cm-sig summary::before { content: '▸ '; }
 .cm-sig[open] summary::before { content: '▾ '; }
 .cm-sig-body { margin-top: 4px; opacity: 0.75; animation: cmIn 0.18s ease both; }
+/* Weitergeleitete Nachricht: eingeklappter Block mit Vorschau (Absender + Betreff + 1. Satz) */
+.cm-fwd {
+  margin-top: 8px; border-left: 3px solid color-mix(in srgb, currentColor 35%, transparent);
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  border-radius: 8px; padding: 7px 10px; font-size: 0.9em;
+}
+.cm-fwd-sum { cursor: pointer; list-style: none; user-select: none; display: flex; flex-direction: column; gap: 2px; }
+.cm-fwd-sum::-webkit-details-marker { display: none; }
+.cm-fwd-tag { font-weight: 700; font-size: 0.92em; display: flex; align-items: center; gap: 4px; }
+.cm-fwd-tag::after { content: '▸'; margin-left: auto; font-weight: 400; opacity: 0.6; transition: transform 0.15s; }
+.cm-fwd[open] .cm-fwd-tag::after { transform: rotate(90deg); }
+.cm-fwd-prev { opacity: 0.7; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+.cm-fwd-body { margin-top: 7px; padding-top: 7px; border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent); opacity: 0.9; animation: cmIn 0.18s ease both; }
 .cm-atts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .cm-att-chip {
   display: inline-flex; align-items: center; gap: 5px;
@@ -536,6 +551,11 @@ export function renderMessages(messages: MessageObject[], settings: ChatSettings
       const sig = m.signatureHtml
         ? `<details class="cm-sig"><summary>${i18n.showSig}</summary><div class="cm-sig-body">${m.signatureHtml}</div></details>`
         : '';
+      // Weitergeleitete Nachricht: eingeklappter Block mit sichtbarer Vorschau (Absender + Betreff +
+      // erster Satz), aufklappbar. Natives <details> → kein extra JS-Wiring nötig.
+      const fwd = m.forwarded
+        ? `<details class="cm-fwd"><summary class="cm-fwd-sum"><span class="cm-fwd-tag">↪ ${esc(i18n.fwd)}${m.forwarded.sender ? `: ${esc(m.forwarded.sender)}` : ''}</span><span class="cm-fwd-prev">${esc(m.forwarded.preview)}</span></summary><div class="cm-fwd-body">${m.forwarded.bodyHtml}</div></details>`
+        : '';
       const atts =
         settings.showAttachments && m.attachments.length
           ? `<div class="cm-atts">${m.attachments
@@ -556,7 +576,7 @@ export function renderMessages(messages: MessageObject[], settings: ChatSettings
           ? m.bodyText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')
           : '';
       return `${daySep}<div class="cm-row ${side} grp-${pos}" data-cm-row="${idx}" style="${styleVars}">
-  <div class="cm-msg">${avatar}<div class="cm-stack">${actions}<div class="cm-bubble">${senderLine}${quoteChip}<div class="cm-body">${bodyContent}</div>${atts}${sig}</div>${time}</div></div>
+  <div class="cm-msg">${avatar}<div class="cm-stack">${actions}<div class="cm-bubble">${senderLine}${quoteChip}<div class="cm-body">${bodyContent}</div>${fwd}${atts}${sig}</div>${time}</div></div>
 </div>`;
     })
     .join('\n');

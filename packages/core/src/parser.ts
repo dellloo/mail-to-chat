@@ -1,3 +1,4 @@
+import { detectForward } from './forwards';
 import { isMetaLine, parseMetaLine } from './metalines';
 import { splitSignature } from './signature';
 import type { Attachment, MessageObject, ParseOptions, Sender } from './types';
@@ -194,14 +195,28 @@ function buildMessage(raw: RawMessage, opts: ParseOptions): MessageObject {
   const attachments = extractAttachments(raw.contentEl);
   const fullText = htmlToText(raw.contentEl);
 
-  let bodyText = fullText;
+  // Weiterleitung abtrennen — VOR dem Signatur-Split, sonst würde der Forward-Inhalt
+  // teils als Signatur erkannt. Der weitergeleitete Teil wandert in ein eigenes,
+  // einklappbares forwarded-Feld; im Bubble bleibt nur die echte Nachricht.
+  let mainText = fullText;
+  let forwarded: MessageObject['forwarded'];
+  const fwd = detectForward(fullText);
+  if (fwd) {
+    mainText = fwd.before;
+    forwarded = {
+      sender: fwd.forward.sender,
+      subject: fwd.forward.subject,
+      date: fwd.forward.date,
+      preview: fwd.forward.preview,
+      bodyHtml: escapeHtml(fwd.forward.body).replace(/\n/g, '<br>'),
+    };
+  }
+
+  let bodyText = mainText;
   let signatureHtml: string | undefined;
   if (opts.filterSignatures !== false) {
-    const { body, signature } = splitSignature(fullText);
+    const { body, signature } = splitSignature(mainText);
     // Signature-Split nur übernehmen wenn noch ein sinnvoller Body übrig bleibt.
-    // Wenn der gesamte Text als Signatur erkannt wird (z. B. Google-Notifications
-    // mit Footer-artiger Struktur), den Split verwerfen — besser alles zeigen als
-    // eine leere Bubble mit kollabierter "Signatur anzeigen".
     if (body.trim()) {
       bodyText = body;
       if (signature) signatureHtml = escapeHtml(signature).replace(/\n/g, '<br>');
@@ -211,18 +226,25 @@ function buildMessage(raw: RawMessage, opts: ParseOptions): MessageObject {
   const rawBodyHtml = raw.contentEl.innerHTML.trim();
   const textBodyHtml = bodyText ? escapeHtml(bodyText).replace(/\n/g, '<br>') : '';
 
+  // bodyHtml-Wahl:
+  //  - Mit Forward: NUR der Haupttext (escaped). rawHtml enthält noch den Forward → würde leaken.
+  //  - Mit Signatur: Text-Modus ohne Sig.
+  //  - Sonst: rawHtml (volles Markup), Text als Fallback.
+  const bodyHtml = forwarded
+    ? textBodyHtml
+    : signatureHtml
+      ? textBodyHtml || rawBodyHtml
+      : rawBodyHtml || textBodyHtml;
+
   return {
     sender: raw.sender,
     timestamp: raw.timestamp,
-    // bodyHtml: wenn Signatur vorhanden → Text-Modus (ohne Sig); wenn rawHtml leer →
-    // Text-Fallback; wenn beides leer → leerer String (filter entfernt die Message).
-    bodyHtml: signatureHtml
-      ? (textBodyHtml || rawBodyHtml)
-      : (rawBodyHtml || textBodyHtml),
+    bodyHtml,
     bodyText,
     signatureHtml,
     attachments,
     isOwn: isOwnMessage(raw.sender, opts),
+    forwarded,
   };
 }
 
@@ -312,7 +334,10 @@ export function parseThread(html: string, opts: ParseOptions = {}): MessageObjec
   const raws = splitLevels(root, newestSender); // neueste zuerst
   const messages = raws
     .map((r) => buildMessage(r, opts))
-    .filter((m) => m.bodyText.trim().length > 0 || m.attachments.length > 0 || m.signatureHtml);
+    .filter(
+      (m) =>
+        m.bodyText.trim().length > 0 || m.attachments.length > 0 || m.signatureHtml || m.forwarded,
+    );
   messages.reverse(); // chronologisch: älteste zuerst
   // Die neueste (zuletzt) ist die äußere Nachricht - isOwn nur, wenn Sender passt oder kein Meta vorhanden war
   return messages;
