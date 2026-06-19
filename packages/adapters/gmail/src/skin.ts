@@ -150,6 +150,11 @@ html.cm-skin .ha h2 { color: ${text} !important; }
 /* Toolbar, Suche, Seitenleiste */
 html.cm-skin .gb_Ne, html.cm-skin form.gb_De, html.cm-skin .aoG { background: ${surface} !important; border-radius: ${radius}px !important; }
 html.cm-skin .G-atb { background: transparent !important; border-bottom: 1px solid rgba(128,128,128,0.18) !important; }
+/* Linke Navigationsspalte solide machen. Ohne eigenen Hintergrund ist .aeN transparent
+   (alle Nav-Kinder rgba(0,0,0,0)); im AUSGEKLAPPTEN Zustand legt Gmail die Nav ueber die
+   Mail-Liste — die scheint dann durch ("durchsichtig"). Solider bg = opake Nav in JEDEM
+   Zustand (ein-/ausgeklappt), kein Durchscheinen. */
+html.cm-skin .aeN { background: ${bg} !important; }
 html.cm-skin .aim .TO { border-radius: 0 ${radius * 1.4}px ${radius * 1.4}px 0 !important; }
 html.cm-skin .TO.nZ, html.cm-skin .aim .TO.nZ { background: ${accent}33 !important; }
 html.cm-skin .TO.nZ .nU a, html.cm-skin .TO.nZ .bsU { color: ${accent} !important; font-weight: 700 !important; }

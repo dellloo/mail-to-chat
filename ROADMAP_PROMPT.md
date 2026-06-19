@@ -7,9 +7,9 @@
 
 ## 1. Kontext & Stand
 
-**Produkt:** Chrome Extension (MV3) + Firefox (MV2). Monorepo: `packages/core`, `packages/ui`, `packages/adapters/gmail`, `apps/chrome-ext`, `apps/firefox-ext`. TypeScript strict, esbuild, Vitest (94 Tests).
+**Produkt:** Chrome Extension (MV3) + Firefox (MV2). Monorepo: `packages/core`, `packages/ui`, `packages/adapters/gmail`, `apps/chrome-ext`, `apps/firefox-ext`. TypeScript strict, esbuild, Vitest (102 Tests).
 
-**Aktuell stabile Version:** v1.6.3
+**Aktuell stabile Version:** v1.6.4
 
 **Was funktioniert:**
 
@@ -42,7 +42,7 @@
 **Engineering:**
 
 - Zero-Halluzination: nur implementieren was du 100% verstehst. Bei Unklarheit: Rückfrage.
-- Alle Änderungen müssen `npm run build` + `npx vitest run` (94/94) bestehen.
+- Alle Änderungen müssen `npm run build` + `npx vitest run` (102/102) bestehen.
 - Kein Refactoring ohne konkreten Grund. Stabilität > Eleganz.
 - TypeScript strict: kein `any`, kein `@ts-ignore`.
 - NASA-Redundanz: jede kritische Funktion hat mindestens zwei unabhängige Pfade.
@@ -59,7 +59,7 @@
 - Git-Tag nach jedem Release: `git tag -a v1.x.x -m "v1.x.x: ..."` + `git push origin v1.x.x`
 - `apps/chrome-ext/manifest.json` + `apps/firefox-ext/manifest.src.json` immer auf gleicher Version
 - Version in manifest.json, manifest.src.json und ROADMAP (Abschnitt 1) synchron halten
-- Niemals pushen ohne lokalen Build+Test-Lauf (94/94)
+- Niemals pushen ohne lokalen Build+Test-Lauf (102/102)
 
 **Commit-Body Pflichtformat** (bei jedem fix/feat):
 ```

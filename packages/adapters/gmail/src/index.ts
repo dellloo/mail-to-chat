@@ -1,5 +1,5 @@
 import { parseThread, type Attachment, type MessageObject, type Sender } from '@chatmail/core';
-import { createChatView, ICONS, type ChatSettings } from '@chatmail/ui';
+import { createChatView, getTheme, ICONS, type ChatSettings } from '@chatmail/ui';
 import { applySkin, updateSkinPageClass } from './skin';
 
 export { applySkin, buildSkinCss } from './skin';
@@ -84,6 +84,8 @@ interface ThreadState {
   /** Mapping Chat-Index → Gmail-DOM-Node (für Pro-Mail-Aktionen). */
   lastNodes: HTMLElement[];
   lastCount: number;
+  /** Optimistischer Lade-Schirm während der Thread-Expansion (überbrückt Wartezeit). */
+  loadingOverlay: HTMLElement | null;
 }
 
 const state: ThreadState = {
@@ -94,6 +96,7 @@ const state: ThreadState = {
   composeMode: false,
   lastNodes: [],
   lastCount: 0,
+  loadingOverlay: null,
 };
 
 /**
@@ -257,6 +260,23 @@ function extractAttachmentCards(node: HTMLElement): Attachment[] {
  */
 function isVisible(el: HTMLElement): boolean {
   return el.getClientRects().length > 0;
+}
+
+/**
+ * Feuert eine vollständige synthetische Pointer+Maus-Klick-Sequenz auf ein Element.
+ * Gmails jsaction-Framework reagiert nur auf den KOMPLETTEN Satz
+ * (pointerdown→mousedown→pointerup→mouseup→click). Ein nacktes .click() oder reine
+ * Maus-Events triggern manche Handler NICHT — insbesondere das Super-Collapse-Band.
+ * isTrusted ist NICHT erforderlich (live verifiziert v1.6.4 im 9-Mail-Marjan-Thread).
+ */
+function fireSyntheticClick(el: Element, clientX: number, clientY: number): void {
+  const base: MouseEventInit = { bubbles: true, cancelable: true, view: window, clientX, clientY, button: 0 };
+  const ptr: PointerEventInit = { ...base, pointerId: 1, pointerType: 'mouse', isPrimary: true };
+  el.dispatchEvent(new PointerEvent('pointerdown', ptr));
+  el.dispatchEvent(new MouseEvent('mousedown', base));
+  el.dispatchEvent(new PointerEvent('pointerup', ptr));
+  el.dispatchEvent(new MouseEvent('mouseup', base));
+  el.dispatchEvent(new MouseEvent('click', base));
 }
 
 /**
@@ -515,34 +535,86 @@ function buildThreadMessages(settings: ChatSettings): MessageObject[] {
   );
 }
 
+/** Hat dieser Knoten einen auswertbaren Mail-Body (div.a3s ODER Notification-Fallback div.ii.gt)? */
+function nodeHasBody(n: HTMLElement): boolean {
+  return (
+    !!n.querySelector('div.a3s')?.textContent?.trim() ||
+    !!n.querySelector('div.ii.gt')?.textContent?.trim()
+  );
+}
+
+/**
+ * Löst Gmails "Super-Collapse"-Bänder auf — MUSS vor expandCollapsedMessages laufen.
+ *
+ * In langen Threads faltet Gmail die mittleren Mails in ein Band-Element (div.adv,
+ * Text = Anzahl versteckter Mails) zusammen. Diese Mails sind NICHT als div.adn im DOM,
+ * sondern als div.kx/div.kv HINTER dem Band versteckt. Erst ein Klick auf das Band
+ * materialisiert sie als [role=listitem], die danach einzeln expandiert werden können.
+ * Genau das verfehlte die alte Pipeline: sie suchte nur collapsed div.adn (die es für
+ * super-collapsed Mails gar nicht gibt) → nur die letzten 1-2 Mails wurden gefunden.
+ *
+ * KRITISCH (live verifiziert v1.6.4): div.adv trägt zwar ein jsaction-Attribut, ist aber
+ * NICHT der funktionale Klick-Handler — ein Klick direkt auf div.adv bewirkt nichts.
+ * Der Klick muss auf das oberste Element am Band-Mittelpunkt (document.elementFromPoint)
+ * gefeuert werden; von dort bubbelt er zum echten Handler auf div.kv.bg. Synthetische
+ * Events genügen (kein isTrusted nötig).
+ */
+async function expandSuperCollapsed(threadList: HTMLElement): Promise<boolean> {
+  const visibleBand = (): HTMLElement | null =>
+    Array.from(threadList.querySelectorAll<HTMLElement>('div.adv')).find(
+      (a) => a.getClientRects().length > 0 && a.getBoundingClientRect().height > 0,
+    ) ?? null;
+
+  let didExpand = false;
+  // Harte Obergrenze gegen Endlosschleife (NASA): mehrere/verschachtelte Bänder möglich.
+  for (let i = 0; i < 8; i++) {
+    const band = visibleBand();
+    if (!band) break;
+    // In den Viewport holen, damit elementFromPoint einen gültigen Trefferpunkt liefert.
+    band.scrollIntoView({ block: 'center' });
+    await new Promise((r) => setTimeout(r, 60));
+    const r = band.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    // Funktionales Klick-Target ist das oberste Element am Band-Mittelpunkt, NICHT div.adv.
+    const target = document.elementFromPoint(cx, cy) ?? band;
+    fireSyntheticClick(target, cx, cy);
+    didExpand = true;
+    // Warten bis genau dieses Band aufgelöst ist (verschwindet / verliert Client-Rects).
+    await waitFor(
+      () => (band.isConnected && band.getClientRects().length > 0 ? null : true),
+      1500,
+      120,
+    );
+  }
+  if (didExpand) log('Super-Collapse: Band(er) aufgelöst, versteckte Nachrichten materialisiert.');
+  return didExpand;
+}
+
 /**
  * Expandiert eingeklappte Gmail-Nachrichten damit ihre div.a3s-Bodies in den DOM geladen werden.
  *
- * Gmail rendert Bodies (div.a3s) nur für sichtbar-aufgeklappte Mails. In langen Threads
- * mit vielen Nachrichten zeigt Gmail ältere Mails als "smart-collapsed" Headers ohne Body —
- * getMessageNodes findet dann nur die letzten 1-2 Mails (die aufgeklappten).
+ * Gmail rendert Bodies (div.a3s) nur für aufgeklappte Mails. Eingeklappte Mails liegen als
+ * [role=listitem] (div.kv) OHNE Body vor und werden erst durch Header-Klick zu div.adn mit Body.
  *
- * Fix: Jeden collapsed div.adn anklicken → Gmail rendert den Body.
- * Mehrere Selektoren als Fallback da Gmail Klassen regelmäßig ändert.
- * Nach dem Klicken warten bis div.a3s-Content erscheint (max 1.5s).
+ * WICHTIG: Es wird über [role=listitem] iteriert, NICHT über div.adn — super-collapsed Mails
+ * sind nach expandSuperCollapsed zwar Listitems, aber noch keine div.adn. Geklickt wird mit
+ * der vollen synthetischen Pointer+Maus-Sequenz (fireSyntheticClick); ein nacktes .click()
+ * reicht für Gmails jsaction-Handler nicht zuverlässig.
  */
 async function expandCollapsedMessages(threadList: HTMLElement): Promise<boolean> {
-  // Kein isVisible-Filter: Gmail "smart-collapsed" Mails haben getClientRects().length === 0
-  // (CSS-versteckt), sind aber als div.adn im DOM vorhanden. Wir sind durch threadList
-  // bereits auf den aktiven Thread beschränkt — kein Risiko Hintergrund-Threads zu expandieren.
-  const toExpand = Array.from(threadList.querySelectorAll<HTMLElement>('div.adn')).filter(
-    (n) =>
-      !n.querySelector('div.a3s')?.textContent?.trim() &&
-      !n.querySelector('div.ii.gt')?.textContent?.trim(),
+  // Eingeklappte Nachrichten = Listitems ohne Body, die einen Mail-Header tragen
+  // (.gE Absenderzeile bzw. span.gD Absender). Der Header-Filter schließt Nicht-Mail-
+  // Listitems (z. B. Compose-/Reply-Box) aus. Durch threadList auf den aktiven Thread begrenzt.
+  const toExpand = Array.from(threadList.querySelectorAll<HTMLElement>('[role="listitem"]')).filter(
+    (li) => !nodeHasBody(li) && !!li.querySelector('.gE, span.gD'),
   );
   if (toExpand.length === 0) return false;
 
-  log(`Expansion: ${toExpand.length} div.adn ohne Body-Content (${toExpand.filter((n) => isVisible(n)).length} sichtbar, ${toExpand.filter((n) => !isVisible(n)).length} CSS-collapsed) — klicke Header...`);
+  log(`Expansion: ${toExpand.length} eingeklappte Nachrichten ohne Body — klicke Header...`);
 
   for (const node of toExpand) {
-    // Gmail-Header-Klick-Target: Fallback-Kette spezifische Klassen → div.adn selbst.
-    // isVisible-Check entfernt: auch CSS-versteckte Nodes erhalten den Click-Event —
-    // Gmail-Event-Delegation auf dem Thread-Container registriert den Klick trotzdem.
+    // Gmail-Header-Klick-Target: Fallback-Kette spezifische Klassen → Listitem selbst.
     const header =
       node.querySelector<HTMLElement>('.gE.iv.gt') ??
       node.querySelector<HTMLElement>('.gE') ??
@@ -550,28 +622,14 @@ async function expandCollapsedMessages(threadList: HTMLElement): Promise<boolean
       node.querySelector<HTMLElement>('td.gH') ??
       node.querySelector<HTMLElement>('table.h7 td:first-child') ??
       node;
-    header.click();
+    const r = header.getBoundingClientRect();
+    fireSyntheticClick(header, r.left + Math.min(40, r.width / 2), r.top + r.height / 2);
   }
 
   // Warten bis Gmail die Bodies gerendert hat (max 1.5s, Check alle 150ms)
-  await waitFor(
-    () => {
-      const stillEmpty = toExpand.filter(
-        (n) =>
-          !n.querySelector('div.a3s')?.textContent?.trim() &&
-          !n.querySelector('div.ii.gt')?.textContent?.trim(),
-      );
-      return stillEmpty.length === 0 ? true : null;
-    },
-    1500,
-    150,
-  );
+  await waitFor(() => (toExpand.every(nodeHasBody) ? true : null), 1500, 150);
 
-  const remaining = toExpand.filter(
-    (n) =>
-      !n.querySelector('div.a3s')?.textContent?.trim() &&
-      !n.querySelector('div.ii.gt')?.textContent?.trim(),
-  );
+  const remaining = toExpand.filter((n) => !nodeHasBody(n));
   log(
     remaining.length > 0
       ? `Expansion: ${remaining.length}/${toExpand.length} Mails noch ohne Body (Gmail braucht Nutzer-Expansion).`
@@ -837,6 +895,7 @@ function openFullEditor(draft = ''): void {
 }
 
 function deactivate(): void {
+  removeLoadingOverlay();
   state.host?.remove();
   state.host = null;
   if (state.hiddenList) {
@@ -898,6 +957,70 @@ function nodeForIndex(idx: number): HTMLElement | null {
   return state.lastNodes[idx - offset] ?? null;
 }
 
+/** Chat-Hintergrundfarbe des aktiven Themes (für nahtlosen Lade-Schirm-Übergang). */
+function resolveChatBg(settings: ChatSettings): string {
+  if (settings.themeId === 'custom') return settings.custom?.background ?? '#101216';
+  return getTheme(settings.themeId)?.background ?? '#101216';
+}
+
+/** Steht im Thread noch (langsame) Expansion an? Nur dann lohnt der Lade-Schirm. */
+function hasPendingExpansion(threadList: HTMLElement): boolean {
+  const superCollapsed = Array.from(threadList.querySelectorAll<HTMLElement>('div.adv')).some(
+    (a) => a.getClientRects().length > 0,
+  );
+  if (superCollapsed) return true;
+  return Array.from(threadList.querySelectorAll<HTMLElement>('[role="listitem"]')).some(
+    (li) => !nodeHasBody(li) && !!li.querySelector('.gE, span.gD'),
+  );
+}
+
+/**
+ * Optimistischer Lade-Schirm: erscheint SOFORT in Chat-Hintergrundfarbe und überbrückt die
+ * 1-3s Thread-Expansion — kein Aufblitzen der klassischen Gmail-Ansicht mehr.
+ *
+ * KRITISCH: pointer-events:none. Der Schirm liegt visuell über allem, lässt aber
+ * document.elementFromPoint() durch — so funktioniert der Super-Collapse-Klick
+ * (expandSuperCollapsed feuert auf elementFromPoint) trotz Overlay weiter. Live verifiziert.
+ */
+function showLoadingOverlay(settings: ChatSettings): HTMLElement {
+  const ov = document.createElement('div');
+  ov.id = 'chatmail-loading';
+  ov.setAttribute('aria-hidden', 'true');
+  ov.style.cssText =
+    `position:fixed;inset:0;z-index:2147483000;pointer-events:none;background:${resolveChatBg(settings)};` +
+    'display:flex;align-items:center;justify-content:center;opacity:1;transition:opacity 160ms ease-out;';
+  const spinner = document.createElement('div');
+  spinner.style.cssText =
+    'width:34px;height:34px;border-radius:50%;border:3px solid rgba(128,128,128,0.25);' +
+    'border-top-color:rgba(128,128,128,0.85);animation:cmSpin 0.7s linear infinite;';
+  ov.appendChild(spinner);
+  if (!document.getElementById('chatmail-loading-kf')) {
+    const kf = document.createElement('style');
+    kf.id = 'chatmail-loading-kf';
+    kf.textContent = '@keyframes cmSpin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(kf);
+  }
+  document.body.appendChild(ov);
+  // Failsafe (NASA-Redundanz): der Schirm kann nie dauerhaft hängen bleiben — selbst wenn die
+  // Aktivierung unerwartet abbricht, entfernt er sich nach 6s selbst.
+  setTimeout(() => {
+    if (!ov.isConnected) return;
+    ov.style.opacity = '0';
+    setTimeout(() => ov.remove(), 220);
+    if (state.loadingOverlay === ov) state.loadingOverlay = null;
+  }, 6000);
+  return ov;
+}
+
+/** Lade-Schirm ausblenden (Crossfade) und entfernen. Idempotent. */
+function removeLoadingOverlay(): void {
+  const ov = state.loadingOverlay;
+  if (!ov) return;
+  state.loadingOverlay = null;
+  ov.style.opacity = '0';
+  setTimeout(() => ov.remove(), 220);
+}
+
 async function activate(deps: AdapterDeps): Promise<boolean> {
   // Thread-Snapshot VOR dem ersten await: wenn der Nutzer zwischendurch
   // eine andere Mail oeffnet, waere unsere Aktivierung fuer den falschen Thread.
@@ -918,15 +1041,27 @@ async function activate(deps: AdapterDeps): Promise<boolean> {
   // "smart-collapsed" und haben kein Body-HTML bis sie expandiert werden.
   const adnForExpand = Array.from(document.querySelectorAll<HTMLElement>('div.adn')).filter(isVisible);
   const tlForExpand = adnForExpand[0]?.closest<HTMLElement>('[role="list"]');
-  if (tlForExpand) await expandCollapsedMessages(tlForExpand);
+  if (tlForExpand) {
+    // Optimistisches UI: nur wenn wirklich (langsam) expandiert werden muss, sofort den
+    // chat-farbenen Lade-Schirm zeigen — überbrückt die Expansion ohne Classic-Flackern.
+    // pointer-events:none lässt elementFromPoint durch → Super-Collapse-Klick bleibt wirksam.
+    if (hasPendingExpansion(tlForExpand)) state.loadingOverlay = showLoadingOverlay(settings);
+    // Reihenfolge ist zwingend: erst die Super-Collapse-Bänder (div.adv) auflösen — das
+    // macht die versteckten Mails überhaupt erst als [role=listitem] verfügbar —, DANN die
+    // einzelnen Header expandieren, damit ihre Bodies (div.a3s) in den DOM geladen werden.
+    await expandSuperCollapsed(tlForExpand);
+    await expandCollapsedMessages(tlForExpand);
+  }
 
   const messages = buildThreadMessages(settings);
   if (messages.length === 0) {
+    removeLoadingOverlay();
     log('Aktivierung abgebrochen: 0 sichtbare Nachrichten gefunden (div.adn).');
     return false;
   }
   const list = findListContainer();
   if (!list || !list.parentElement) {
+    removeLoadingOverlay();
     log('Aktivierung abgebrochen: Nachrichten-Container (div[role=list]) nicht gefunden.');
     return false;
   }
@@ -976,6 +1111,8 @@ async function activate(deps: AdapterDeps): Promise<boolean> {
     requestAnimationFrame(() => {
       host.style.transition = 'opacity 150ms ease-out';
       host.style.opacity = '1';
+      // Crossfade: Lade-Schirm blendet aus, während der Chat einblendet — nahtloser Übergang.
+      removeLoadingOverlay();
       setTimeout(() => { if (host.isConnected) host.style.transition = ''; }, 200);
     });
   });
