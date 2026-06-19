@@ -411,6 +411,34 @@ export function buildCss(settings: ChatSettings): string {
   transition: background 0.15s;
 }
 .cm-lb-open:hover { background: rgba(255,255,255,0.22); }
+
+/* ---------- Smart Quote-Collapse ---------- */
+/* blockquote-Inhalte in Chat-Bubbles werden standardmäßig eingeklappt.
+   Ein Badge-Button zeigt die Zeilenzahl; Klick klappt auf/zu mit Animation. */
+.cm-bq-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: none; border-radius: 999px; cursor: pointer;
+  font-size: 0.78em; font-weight: 600; font-family: inherit;
+  padding: 3px 11px; margin: 4px 0;
+  background: color-mix(in srgb, currentColor 11%, transparent);
+  color: inherit; opacity: 0.6; line-height: 1.6;
+  transition: opacity 0.15s, background 0.15s;
+  user-select: none;
+}
+.cm-bq-btn:hover { opacity: 1; background: color-mix(in srgb, currentColor 19%, transparent); }
+.cm-bq-btn:active { transform: scale(0.95); }
+.cm-bq-content {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.22s cubic-bezier(0.22,1,0.36,1), opacity 0.18s ease;
+}
+.cm-bq-content.cm-bq-open {
+  max-height: 2000px;
+  opacity: 1;
+}
+/* Lightbox nicht durch max-height blockieren */
+.cm-lb .cm-bq-content { max-height: none !important; opacity: 1 !important; }
 `;
 }
 
@@ -795,6 +823,54 @@ function wireComposer(chatEl: Element, settings: ChatSettings, handlers: ChatVie
 }
 
 /**
+ * Smart Quote-Collapse: blockquote-Elemente in Chat-Bubbles werden standardmäßig
+ * eingeklappt und zeigen einen Badge "X Zeilen zitiert". Klick klappt auf/zu.
+ *
+ * Warum Post-DOM statt HTML-Template: blockquotes müssen im echten DOM gemessen
+ * werden (Zeilenzahl via Kinder-Elemente), HTML-String-Manipulation wäre fragil.
+ */
+function wireQuoteCollapse(shadow: ShadowRoot, settings: ChatSettings): void {
+  const isEn = settings.uiLanguage === 'en';
+  const label = (n: number): string => isEn ? `${n} quoted lines` : `${n} Zeilen zitiert`;
+
+  shadow.querySelectorAll<HTMLElement>('.cm-body blockquote').forEach((bq) => {
+    // Zeilenzahl schätzen: Block-Kinder (p, div, br, li) + 1 als Proxy für sichtbare Zeilen.
+    // Genauer als Char-Count, stabiler als getBoundingClientRect() vor dem Rendern.
+    const blockCount = bq.querySelectorAll('p, div, br, li, h1, h2, h3, h4, h5, h6, tr').length;
+    const lineCount = Math.max(1, blockCount || Math.ceil((bq.textContent?.length ?? 0) / 60));
+
+    const wrap = document.createElement('div');
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'cm-bq-btn';
+    btn.setAttribute('aria-expanded', 'false');
+    btn.textContent = `··· ${label(lineCount)}`;
+
+    const content = document.createElement('div');
+    content.className = 'cm-bq-content';
+    // blockquote in den animierten Container verschieben
+    bq.parentNode?.insertBefore(wrap, bq);
+    content.appendChild(bq);
+    wrap.appendChild(btn);
+    wrap.appendChild(content);
+
+    btn.addEventListener('click', () => {
+      const isOpen = content.classList.contains('cm-bq-open');
+      if (isOpen) {
+        content.classList.remove('cm-bq-open');
+        btn.setAttribute('aria-expanded', 'false');
+        btn.textContent = `··· ${label(lineCount)}`;
+      } else {
+        content.classList.add('cm-bq-open');
+        btn.setAttribute('aria-expanded', 'true');
+        btn.textContent = `▲ ${label(lineCount)}`;
+      }
+    });
+  });
+}
+
+/**
  * Erzeugt das komplette Chat-View-Element mit Shadow DOM (Style-Isolation
  * gegen Gmail-CSS in beide Richtungen), inkl. Lightbox und optionalem Composer.
  */
@@ -817,5 +893,6 @@ export function createChatView(
   wireComposer(chatEl, settings, handlers);
   wireContactCard(shadow, settings);
   wireLightbox(shadow, settings);
+  wireQuoteCollapse(shadow, settings);
   return host;
 }
