@@ -974,30 +974,64 @@ function hasPendingExpansion(threadList: HTMLElement): boolean {
   );
 }
 
+/** Schätzt die Gesamtzahl der Nachrichten im Thread — bestimmt die Anzahl Skeleton-Bubbles. */
+function estimateMessageCount(threadList: HTMLElement): number {
+  const listitems = threadList.querySelectorAll('[role="listitem"]').length;
+  // Super-Collapse-Bänder (div.adv) tragen die Anzahl versteckter Mails als Text ("6").
+  let hidden = 0;
+  for (const adv of Array.from(threadList.querySelectorAll<HTMLElement>('div.adv'))) {
+    if (adv.getClientRects().length === 0) continue;
+    const n = Number.parseInt(adv.textContent?.trim() ?? '', 10);
+    if (Number.isFinite(n)) hidden += n;
+  }
+  // listitems = geladene + sichtbar-collapsed; hidden = super-collapsed dahinter.
+  return Math.max(2, Math.min(listitems + hidden, 24)); // sinnvolle Ober-/Untergrenze
+}
+
 /**
- * Optimistischer Lade-Schirm: erscheint SOFORT in Chat-Hintergrundfarbe und überbrückt die
- * 1-3s Thread-Expansion — kein Aufblitzen der klassischen Gmail-Ansicht mehr.
+ * Optimistischer Lade-Schirm mit Skeleton-Bubbles: erscheint SOFORT in Chat-Hintergrundfarbe,
+ * zeigt schimmernde Platzhalter-Bubbles (≈ erwartete Nachrichtenzahl) und überbrückt die
+ * 1-3s Thread-Expansion — kein Aufblitzen der klassischen Gmail-Ansicht, sofort "Chat-Gefühl".
+ * Beim Fertigladen blendet der Schirm aus, während der echte Chat einblendet (Crossfade).
  *
  * KRITISCH: pointer-events:none. Der Schirm liegt visuell über allem, lässt aber
  * document.elementFromPoint() durch — so funktioniert der Super-Collapse-Klick
  * (expandSuperCollapsed feuert auf elementFromPoint) trotz Overlay weiter. Live verifiziert.
  */
-function showLoadingOverlay(settings: ChatSettings): HTMLElement {
+function showLoadingOverlay(settings: ChatSettings, count: number): HTMLElement {
+  const bg = resolveChatBg(settings);
+  const radius = getTheme(settings.themeId)?.radius ?? 14;
+
   const ov = document.createElement('div');
   ov.id = 'chatmail-loading';
   ov.setAttribute('aria-hidden', 'true');
   ov.style.cssText =
-    `position:fixed;inset:0;z-index:2147483000;pointer-events:none;background:${resolveChatBg(settings)};` +
-    'display:flex;align-items:center;justify-content:center;opacity:1;transition:opacity 160ms ease-out;';
-  const spinner = document.createElement('div');
-  spinner.style.cssText =
-    'width:34px;height:34px;border-radius:50%;border:3px solid rgba(128,128,128,0.25);' +
-    'border-top-color:rgba(128,128,128,0.85);animation:cmSpin 0.7s linear infinite;';
-  ov.appendChild(spinner);
+    `position:fixed;inset:0;z-index:2147483000;pointer-events:none;background:${bg};` +
+    'display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;' +
+    'opacity:1;transition:opacity 160ms ease-out;';
+
+  const col = document.createElement('div');
+  col.style.cssText = 'width:100%;max-width:760px;margin:0 auto;padding:18px 20px;box-sizing:border-box;';
+  // Skeleton-Bubbles: meist links (Gegenseite), gelegentlich rechts (eigene). Breiten/Höhen variieren.
+  const widths = [62, 45, 70, 52, 38, 66, 48, 58, 41, 64];
+  for (let i = 0; i < Math.max(2, count); i++) {
+    const own = i % 5 === 4;
+    const row = document.createElement('div');
+    row.style.cssText = `display:flex;justify-content:${own ? 'flex-end' : 'flex-start'};margin:9px 0;`;
+    const bubble = document.createElement('div');
+    bubble.style.cssText =
+      `width:${widths[i % widths.length]}%;height:${30 + (i % 3) * 16}px;border-radius:${radius}px;` +
+      'background:linear-gradient(100deg,rgba(140,140,140,0.10) 30%,rgba(140,140,140,0.24) 50%,rgba(140,140,140,0.10) 70%);' +
+      `background-size:200% 100%;animation:cmShimmer 1.3s ease-in-out infinite;animation-delay:${(i % 6) * 0.12}s;`;
+    row.appendChild(bubble);
+    col.appendChild(row);
+  }
+  ov.appendChild(col);
+
   if (!document.getElementById('chatmail-loading-kf')) {
     const kf = document.createElement('style');
     kf.id = 'chatmail-loading-kf';
-    kf.textContent = '@keyframes cmSpin{to{transform:rotate(360deg)}}';
+    kf.textContent = '@keyframes cmShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}';
     document.head.appendChild(kf);
   }
   document.body.appendChild(ov);
@@ -1045,7 +1079,8 @@ async function activate(deps: AdapterDeps): Promise<boolean> {
     // Optimistisches UI: nur wenn wirklich (langsam) expandiert werden muss, sofort den
     // chat-farbenen Lade-Schirm zeigen — überbrückt die Expansion ohne Classic-Flackern.
     // pointer-events:none lässt elementFromPoint durch → Super-Collapse-Klick bleibt wirksam.
-    if (hasPendingExpansion(tlForExpand)) state.loadingOverlay = showLoadingOverlay(settings);
+    if (hasPendingExpansion(tlForExpand))
+      state.loadingOverlay = showLoadingOverlay(settings, estimateMessageCount(tlForExpand));
     // Reihenfolge ist zwingend: erst die Super-Collapse-Bänder (div.adv) auflösen — das
     // macht die versteckten Mails überhaupt erst als [role=listitem] verfügbar —, DANN die
     // einzelnen Header expandieren, damit ihre Bodies (div.a3s) in den DOM geladen werden.

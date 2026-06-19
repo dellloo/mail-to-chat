@@ -3,3 +3,7 @@ dist/
 *.bak
 *.v104.bak
 .DS_Store
+
+.DS_Store
+*.bak
+.commit-*.txt
