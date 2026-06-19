@@ -527,19 +527,22 @@ function buildThreadMessages(settings: ChatSettings): MessageObject[] {
  * Nach dem Klicken warten bis div.a3s-Content erscheint (max 1.5s).
  */
 async function expandCollapsedMessages(threadList: HTMLElement): Promise<boolean> {
+  // Kein isVisible-Filter: Gmail "smart-collapsed" Mails haben getClientRects().length === 0
+  // (CSS-versteckt), sind aber als div.adn im DOM vorhanden. Wir sind durch threadList
+  // bereits auf den aktiven Thread beschränkt — kein Risiko Hintergrund-Threads zu expandieren.
   const toExpand = Array.from(threadList.querySelectorAll<HTMLElement>('div.adn')).filter(
     (n) =>
-      isVisible(n) &&
       !n.querySelector('div.a3s')?.textContent?.trim() &&
       !n.querySelector('div.ii.gt')?.textContent?.trim(),
   );
   if (toExpand.length === 0) return false;
 
-  log(`Expansion: ${toExpand.length} div.adn ohne Body-Content — klicke Header...`);
+  log(`Expansion: ${toExpand.length} div.adn ohne Body-Content (${toExpand.filter((n) => isVisible(n)).length} sichtbar, ${toExpand.filter((n) => !isVisible(n)).length} CSS-collapsed) — klicke Header...`);
 
   for (const node of toExpand) {
-    // Gmail-Header-Klick-Target: erster sichtbarer Element-Bereich im div.adn.
-    // Fallback-Kette: spezifische Gmail-Klassen → allgemeineres td → div.adn selbst.
+    // Gmail-Header-Klick-Target: Fallback-Kette spezifische Klassen → div.adn selbst.
+    // isVisible-Check entfernt: auch CSS-versteckte Nodes erhalten den Click-Event —
+    // Gmail-Event-Delegation auf dem Thread-Container registriert den Klick trotzdem.
     const header =
       node.querySelector<HTMLElement>('.gE.iv.gt') ??
       node.querySelector<HTMLElement>('.gE') ??
@@ -547,7 +550,7 @@ async function expandCollapsedMessages(threadList: HTMLElement): Promise<boolean
       node.querySelector<HTMLElement>('td.gH') ??
       node.querySelector<HTMLElement>('table.h7 td:first-child') ??
       node;
-    if (isVisible(header)) header.click();
+    header.click();
   }
 
   // Warten bis Gmail die Bodies gerendert hat (max 1.5s, Check alle 150ms)
