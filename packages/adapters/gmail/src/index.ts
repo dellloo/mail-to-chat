@@ -1,5 +1,5 @@
 import { parseThread, type Attachment, type MessageObject, type Sender } from '@chatmail/core';
-import { createChatView, getTheme, ICONS, type ChatSettings } from '@chatmail/ui';
+import { createChatView, ICONS, type ChatSettings } from '@chatmail/ui';
 import { applySkin, updateSkinPageClass } from './skin';
 
 export { applySkin, buildSkinCss } from './skin';
@@ -84,8 +84,6 @@ interface ThreadState {
   /** Mapping Chat-Index → Gmail-DOM-Node (für Pro-Mail-Aktionen). */
   lastNodes: HTMLElement[];
   lastCount: number;
-  /** Optimistischer Lade-Schirm während der Thread-Expansion (überbrückt Wartezeit). */
-  loadingOverlay: HTMLElement | null;
 }
 
 const state: ThreadState = {
@@ -96,7 +94,6 @@ const state: ThreadState = {
   composeMode: false,
   lastNodes: [],
   lastCount: 0,
-  loadingOverlay: null,
 };
 
 /**
@@ -895,7 +892,6 @@ function openFullEditor(draft = ''): void {
 }
 
 function deactivate(): void {
-  removeLoadingOverlay();
   state.host?.remove();
   state.host = null;
   if (state.hiddenList) {
@@ -957,13 +953,7 @@ function nodeForIndex(idx: number): HTMLElement | null {
   return state.lastNodes[idx - offset] ?? null;
 }
 
-/** Chat-Hintergrundfarbe des aktiven Themes (für nahtlosen Lade-Schirm-Übergang). */
-function resolveChatBg(settings: ChatSettings): string {
-  if (settings.themeId === 'custom') return settings.custom?.background ?? '#101216';
-  return getTheme(settings.themeId)?.background ?? '#101216';
-}
-
-/** Steht im Thread noch (langsame) Expansion an? Nur dann lohnt der Lade-Schirm. */
+/** Steht im Thread noch (eingeklappte / super-collapsed) Expansion an? */
 function hasPendingExpansion(threadList: HTMLElement): boolean {
   const superCollapsed = Array.from(threadList.querySelectorAll<HTMLElement>('div.adv')).some(
     (a) => a.getClientRects().length > 0,
@@ -972,87 +962,6 @@ function hasPendingExpansion(threadList: HTMLElement): boolean {
   return Array.from(threadList.querySelectorAll<HTMLElement>('[role="listitem"]')).some(
     (li) => !nodeHasBody(li) && !!li.querySelector('.gE, span.gD'),
   );
-}
-
-/** Schätzt die Gesamtzahl der Nachrichten im Thread — bestimmt die Anzahl Skeleton-Bubbles. */
-function estimateMessageCount(threadList: HTMLElement): number {
-  const listitems = threadList.querySelectorAll('[role="listitem"]').length;
-  // Super-Collapse-Bänder (div.adv) tragen die Anzahl versteckter Mails als Text ("6").
-  let hidden = 0;
-  for (const adv of Array.from(threadList.querySelectorAll<HTMLElement>('div.adv'))) {
-    if (adv.getClientRects().length === 0) continue;
-    const n = Number.parseInt(adv.textContent?.trim() ?? '', 10);
-    if (Number.isFinite(n)) hidden += n;
-  }
-  // listitems = geladene + sichtbar-collapsed; hidden = super-collapsed dahinter.
-  return Math.max(2, Math.min(listitems + hidden, 24)); // sinnvolle Ober-/Untergrenze
-}
-
-/**
- * Optimistischer Lade-Schirm mit Skeleton-Bubbles: erscheint SOFORT in Chat-Hintergrundfarbe,
- * zeigt schimmernde Platzhalter-Bubbles (≈ erwartete Nachrichtenzahl) und überbrückt die
- * 1-3s Thread-Expansion — kein Aufblitzen der klassischen Gmail-Ansicht, sofort "Chat-Gefühl".
- * Beim Fertigladen blendet der Schirm aus, während der echte Chat einblendet (Crossfade).
- *
- * KRITISCH: pointer-events:none. Der Schirm liegt visuell über allem, lässt aber
- * document.elementFromPoint() durch — so funktioniert der Super-Collapse-Klick
- * (expandSuperCollapsed feuert auf elementFromPoint) trotz Overlay weiter. Live verifiziert.
- */
-function showLoadingOverlay(settings: ChatSettings, count: number): HTMLElement {
-  const bg = resolveChatBg(settings);
-  const radius = getTheme(settings.themeId)?.radius ?? 14;
-
-  const ov = document.createElement('div');
-  ov.id = 'chatmail-loading';
-  ov.setAttribute('aria-hidden', 'true');
-  ov.style.cssText =
-    `position:fixed;inset:0;z-index:2147483000;pointer-events:none;background:${bg};` +
-    'display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;' +
-    'opacity:1;transition:opacity 160ms ease-out;';
-
-  const col = document.createElement('div');
-  col.style.cssText = 'width:100%;max-width:760px;margin:0 auto;padding:18px 20px;box-sizing:border-box;';
-  // Skeleton-Bubbles: meist links (Gegenseite), gelegentlich rechts (eigene). Breiten/Höhen variieren.
-  const widths = [62, 45, 70, 52, 38, 66, 48, 58, 41, 64];
-  for (let i = 0; i < Math.max(2, count); i++) {
-    const own = i % 5 === 4;
-    const row = document.createElement('div');
-    row.style.cssText = `display:flex;justify-content:${own ? 'flex-end' : 'flex-start'};margin:9px 0;`;
-    const bubble = document.createElement('div');
-    bubble.style.cssText =
-      `width:${widths[i % widths.length]}%;height:${30 + (i % 3) * 16}px;border-radius:${radius}px;` +
-      'background:linear-gradient(100deg,rgba(140,140,140,0.10) 30%,rgba(140,140,140,0.24) 50%,rgba(140,140,140,0.10) 70%);' +
-      `background-size:200% 100%;animation:cmShimmer 1.3s ease-in-out infinite;animation-delay:${(i % 6) * 0.12}s;`;
-    row.appendChild(bubble);
-    col.appendChild(row);
-  }
-  ov.appendChild(col);
-
-  if (!document.getElementById('chatmail-loading-kf')) {
-    const kf = document.createElement('style');
-    kf.id = 'chatmail-loading-kf';
-    kf.textContent = '@keyframes cmShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}';
-    document.head.appendChild(kf);
-  }
-  document.body.appendChild(ov);
-  // Failsafe (NASA-Redundanz): der Schirm kann nie dauerhaft hängen bleiben — selbst wenn die
-  // Aktivierung unerwartet abbricht, entfernt er sich nach 6s selbst.
-  setTimeout(() => {
-    if (!ov.isConnected) return;
-    ov.style.opacity = '0';
-    setTimeout(() => ov.remove(), 220);
-    if (state.loadingOverlay === ov) state.loadingOverlay = null;
-  }, 6000);
-  return ov;
-}
-
-/** Lade-Schirm ausblenden (Crossfade) und entfernen. Idempotent. */
-function removeLoadingOverlay(): void {
-  const ov = state.loadingOverlay;
-  if (!ov) return;
-  state.loadingOverlay = null;
-  ov.style.opacity = '0';
-  setTimeout(() => ov.remove(), 220);
 }
 
 async function activate(deps: AdapterDeps): Promise<boolean> {
@@ -1073,35 +982,51 @@ async function activate(deps: AdapterDeps): Promise<boolean> {
   // Eingeklappte Gmail-Nachrichten aufklappen damit ihre Bodies (div.a3s) in den DOM geladen werden.
   // Gmail rendert Bodies nur für aufgeklappte Mails; in langen Threads sind ältere Mails
   // "smart-collapsed" und haben kein Body-HTML bis sie expandiert werden.
+  // Aktiven Thread-Container bestimmen + prüfen, ob noch Nachrichten nachzuladen sind.
   const adnForExpand = Array.from(document.querySelectorAll<HTMLElement>('div.adn')).filter(isVisible);
-  const tlForExpand = adnForExpand[0]?.closest<HTMLElement>('[role="list"]');
-  if (tlForExpand) {
-    // Optimistisches UI: nur wenn wirklich (langsam) expandiert werden muss, sofort den
-    // chat-farbenen Lade-Schirm zeigen — überbrückt die Expansion ohne Classic-Flackern.
-    // pointer-events:none lässt elementFromPoint durch → Super-Collapse-Klick bleibt wirksam.
-    if (hasPendingExpansion(tlForExpand))
-      state.loadingOverlay = showLoadingOverlay(settings, estimateMessageCount(tlForExpand));
-    // Reihenfolge ist zwingend: erst die Super-Collapse-Bänder (div.adv) auflösen — das
-    // macht die versteckten Mails überhaupt erst als [role=listitem] verfügbar —, DANN die
-    // einzelnen Header expandieren, damit ihre Bodies (div.a3s) in den DOM geladen werden.
-    await expandSuperCollapsed(tlForExpand);
-    await expandCollapsedMessages(tlForExpand);
-  }
+  const tl = adnForExpand[0]?.closest<HTMLElement>('[role="list"]') ?? null;
+  const pending = tl ? hasPendingExpansion(tl) : false;
 
-  const messages = buildThreadMessages(settings);
+  // SOFORT verfügbare Nachrichten holen — ohne auf die (langsame) Expansion zu warten.
+  // Die Chat-Ansicht erscheint dadurch instant (wie im echten Gmail); fehlende ältere
+  // Nachrichten werden danach UNSICHTBAR im Hintergrund nachgeladen (backgroundExpand).
+  let messages = buildThreadMessages(settings);
+  // Sonderfall: gar nichts geladen (reiner Super-Collapse-Thread) → erst expandieren, sonst
+  // gäbe es nichts zu zeigen. Normalerweise ist die neueste Mail bereits geladen.
+  if (messages.length === 0 && tl) {
+    await expandSuperCollapsed(tl);
+    await expandCollapsedMessages(tl);
+    messages = buildThreadMessages(settings);
+  }
   if (messages.length === 0) {
-    removeLoadingOverlay();
     log('Aktivierung abgebrochen: 0 sichtbare Nachrichten gefunden (div.adn).');
     return false;
   }
   const list = findListContainer();
   if (!list || !list.parentElement) {
-    removeLoadingOverlay();
     log('Aktivierung abgebrochen: Nachrichten-Container (div[role=list]) nicht gefunden.');
     return false;
   }
-  log('Aktiviere Chat-Ansicht:', messages.length, 'Nachrichten.');
+  log('Aktiviere Chat-Ansicht (sofort):', messages.length, 'Nachrichten.');
+  renderChat(deps, settings, messages, list);
 
+  // Restliche (eingeklappte / super-collapsed) Nachrichten unsichtbar im Hintergrund nachladen
+  // und die Chat-Ansicht danach still aktualisieren — die Seite wird nie blockiert.
+  if (tl && pending) void backgroundExpand(deps, settings, tl, threadKeyBefore);
+  return true;
+}
+
+/**
+ * Baut die Chat-Ansicht aus `messages`, hängt sie anstelle der Gmail-Liste ein und blendet sie
+ * ein. Wiederverwendet für den Sofort-Render UND das Hintergrund-Update nach der Expansion.
+ */
+function renderChat(
+  deps: AdapterDeps,
+  settings: ChatSettings,
+  messages: MessageObject[],
+  list: HTMLElement,
+): void {
+  if (!list.parentElement) return;
   state.lastNodes = getMessageNodes();
   state.lastCount = messages.length;
 
@@ -1142,12 +1067,10 @@ async function activate(deps: AdapterDeps): Promise<boolean> {
   list.style.display = 'none';
   requestAnimationFrame(() => {
     // Messenger-Verhalten: unten (neueste Nachricht) starten, nicht oben
-    state.host?.scrollIntoView({ block: 'end' });
+    host.scrollIntoView({ block: 'end' });
     requestAnimationFrame(() => {
       host.style.transition = 'opacity 150ms ease-out';
       host.style.opacity = '1';
-      // Crossfade: Lade-Schirm blendet aus, während der Chat einblendet — nahtloser Übergang.
-      removeLoadingOverlay();
       setTimeout(() => { if (host.isConnected) host.style.transition = ''; }, 200);
     });
   });
@@ -1160,7 +1083,76 @@ async function activate(deps: AdapterDeps): Promise<boolean> {
   state.host = host;
   state.hiddenList = list;
   state.active = true;
-  return true;
+}
+
+/**
+ * Lädt im Hintergrund die noch eingeklappten / super-collapsed Nachrichten nach und aktualisiert
+ * danach die Chat-Ansicht — OHNE die Seite je zu blockieren.
+ *
+ * Trick: Der bereits sichtbare Chat-Host wird kurz als fixierter Overlay (pointer-events:none)
+ * über die wieder eingeblendete native Liste gelegt. So bleibt der Chat sichtbar, während
+ * document.elementFromPoint() die Super-Collapse-Bänder DAHINTER erreicht (Expansion funktioniert
+ * weiter). Danach wird mit allen Nachrichten neu gerendert. Defensiv (NASA): bei jedem Fehler
+ * bleibt der Sofort-Chat erhalten — kein kaputter Zustand.
+ */
+async function backgroundExpand(
+  deps: AdapterDeps,
+  settings: ChatSettings,
+  tl: HTMLElement,
+  threadKey: string,
+): Promise<void> {
+  const host = state.host;
+  const list = state.hiddenList;
+  if (!host || !list) return;
+  const restore = (): void => {
+    host.style.position = '';
+    host.style.top = '';
+    host.style.left = '';
+    host.style.width = '';
+    host.style.height = '';
+    host.style.zIndex = '';
+    host.style.pointerEvents = '';
+    list.style.display = 'none';
+  };
+  try {
+    // Host über den GANZEN Lesebereich fixieren (Eltern-Rect, nicht nur die kurze Sofort-Höhe),
+    // damit die dahinter eingeblendete native Liste vollständig verdeckt bleibt.
+    const r = (host.parentElement ?? host).getBoundingClientRect();
+    host.style.position = 'fixed';
+    host.style.top = `${r.top}px`;
+    host.style.left = `${r.left}px`;
+    host.style.width = `${r.width}px`;
+    host.style.height = `${r.height}px`;
+    host.style.zIndex = '2147483000';
+    host.style.pointerEvents = 'none';
+    list.style.display = '';
+
+    await expandSuperCollapsed(tl);
+    await expandCollapsedMessages(tl);
+
+    // Abbruch, wenn inzwischen Thread gewechselt wurde oder ein neuer Lauf den Host ersetzt hat.
+    if (state.host !== host || (findThreadHeader()?.textContent ?? '') !== threadKey) return;
+
+    const full = buildThreadMessages(settings);
+    if (full.length > state.lastCount) {
+      const list2 = findListContainer() ?? list;
+      if (list2.parentElement) {
+        // Neuen Host (alle Nachrichten) im Normalfluss rendern; der alte fixierte Overlay
+        // deckt den Fade-in ab und wird danach entfernt → kein Flackern.
+        renderChat(deps, settings, full, list2);
+        const oldHost = host;
+        setTimeout(() => oldHost.remove(), 220);
+      } else {
+        restore();
+      }
+    } else {
+      // Nichts Neues dazugekommen → Host zurück in Normalfluss, Liste verstecken.
+      restore();
+    }
+  } catch (err) {
+    log('Hintergrund-Expansion fehlgeschlagen, Sofort-Chat bleibt aktiv:', String(err));
+    restore();
+  }
 }
 
 /**
