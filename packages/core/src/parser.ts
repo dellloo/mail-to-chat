@@ -182,14 +182,27 @@ function buildMessage(raw: RawMessage, opts: ParseOptions): MessageObject {
   let signatureHtml: string | undefined;
   if (opts.filterSignatures !== false) {
     const { body, signature } = splitSignature(fullText);
-    bodyText = body;
-    if (signature) signatureHtml = escapeHtml(signature).replace(/\n/g, '<br>');
+    // Signature-Split nur übernehmen wenn noch ein sinnvoller Body übrig bleibt.
+    // Wenn der gesamte Text als Signatur erkannt wird (z. B. Google-Notifications
+    // mit Footer-artiger Struktur), den Split verwerfen — besser alles zeigen als
+    // eine leere Bubble mit kollabierter "Signatur anzeigen".
+    if (body.trim()) {
+      bodyText = body;
+      if (signature) signatureHtml = escapeHtml(signature).replace(/\n/g, '<br>');
+    }
   }
+
+  const rawBodyHtml = raw.contentEl.innerHTML.trim();
+  const textBodyHtml = bodyText ? escapeHtml(bodyText).replace(/\n/g, '<br>') : '';
 
   return {
     sender: raw.sender,
     timestamp: raw.timestamp,
-    bodyHtml: signatureHtml ? escapeHtml(bodyText).replace(/\n/g, '<br>') : raw.contentEl.innerHTML.trim(),
+    // bodyHtml: wenn Signatur vorhanden → Text-Modus (ohne Sig); wenn rawHtml leer →
+    // Text-Fallback; wenn beides leer → leerer String (filter entfernt die Message).
+    bodyHtml: signatureHtml
+      ? (textBodyHtml || rawBodyHtml)
+      : (rawBodyHtml || textBodyHtml),
     bodyText,
     signatureHtml,
     attachments,

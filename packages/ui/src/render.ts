@@ -520,8 +520,15 @@ export function renderMessages(messages: MessageObject[], settings: ChatSettings
           : '';
       const time = m.timestamp ? `<div class="cm-time">${esc(m.timestamp)}</div>` : '';
       const actions = `<div class="cm-actions"><button type="button" class="cm-act" data-cm-act="reply" data-cm-idx="${idx}" title="${i18n.replyOne}">${ICONS.reply}</button><button type="button" class="cm-act" data-cm-act="forward" data-cm-idx="${idx}" title="${i18n.forwardOne}">${ICONS.forward}</button></div>`;
+      // Sicherheitsnetz: falls bodyHtml trotz Parser-Fixes leer bleibt (z. B. bei
+      // Google-Notification-Cards), bodyText als Plain-Text-Fallback rendern.
+      const bodyContent = m.bodyHtml.trim()
+        ? m.bodyHtml
+        : m.bodyText
+          ? m.bodyText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')
+          : '';
       return `${daySep}<div class="cm-row ${side} grp-${pos}" data-cm-row="${idx}" style="${styleVars}">
-  <div class="cm-msg">${avatar}<div class="cm-stack">${actions}<div class="cm-bubble">${senderLine}${quoteChip}<div class="cm-body">${m.bodyHtml}</div>${atts}${sig}</div>${time}</div></div>
+  <div class="cm-msg">${avatar}<div class="cm-stack">${actions}<div class="cm-bubble">${senderLine}${quoteChip}<div class="cm-body">${bodyContent}</div>${atts}${sig}</div>${time}</div></div>
 </div>`;
     })
     .join('\n');

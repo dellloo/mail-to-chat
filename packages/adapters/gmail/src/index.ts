@@ -290,7 +290,12 @@ function extractFromNode(
   settings: ChatSettings,
 ): MessageObject | null {
   const senderEl = node.querySelector('span.gD');
-  const body = node.querySelector<HTMLElement>('div.a3s');
+  // Primär: div.a3s (Standard-Mail-Body). Fallback: div.ii.gt (Google-Notification-
+  // Cards / AMP-Mails, bei denen Gmail den Body ggf. anders strukturiert).
+  // Nur auf Fallback wechseln wenn div.a3s nicht existiert ODER komplett leer ist.
+  const a3s = node.querySelector<HTMLElement>('div.a3s');
+  const body = (a3s && a3s.textContent?.trim()) ? a3s
+    : node.querySelector<HTMLElement>('div.ii.gt') ?? a3s;
   if (!body) return null;
 
   const email = senderEl?.getAttribute('email') ?? undefined;
