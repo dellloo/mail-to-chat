@@ -278,9 +278,28 @@ function findThreadHeader(): HTMLElement | null {
 }
 
 function getMessageNodes(): HTMLElement[] {
-  // Nur SICHTBARE Nachrichten: im Lesebereich-Modus (geteilte Ansicht) behält
-  // Gmail alte Thread-DOMs unsichtbar im Hintergrund - die dürfen nicht reinrutschen.
-  return Array.from(document.querySelectorAll<HTMLElement>('div.adn')).filter(isVisible);
+  // Sichtbare div.adn finden, um den aktiven Thread-Container zu bestimmen.
+  // Im Lesebereich-Modus (geteilte Ansicht) behält Gmail alte Thread-DOMs
+  // unsichtbar im Hintergrund — nur der Container mit sichtbaren Nodes zählt.
+  const visible = Array.from(document.querySelectorAll<HTMLElement>('div.adn')).filter(isVisible);
+  if (visible.length === 0) return [];
+
+  // Thread-Container [role="list"] des aktiven Threads ermitteln.
+  // Darin liegen ALLE Nachrichten — auch eingeklappte. Gmail lädt alle Mail-Bodies
+  // beim Thread-Öffnen vollständig in den DOM (kein lazy-load für div.a3s).
+  // Eingeklappte Mails sind nur visuell versteckt (display:none auf dem Listitem),
+  // ihr Inhalt ist lesbar und muss im Chat erscheinen.
+  const threadList = visible[0]?.closest<HTMLElement>('[role="list"]');
+  if (!threadList) return visible;
+
+  // Alle div.adn im Thread-Container — Nodes ohne auswertbaren Body überspringen
+  // (leere Skeleton-Loader, Draft-Platzhalter etc.).
+  return Array.from(threadList.querySelectorAll<HTMLElement>('div.adn')).filter((n) => {
+    const a3s = n.querySelector('div.a3s');
+    if (a3s?.textContent?.trim()) return true;
+    const iiGt = n.querySelector('div.ii.gt');
+    return !!(iiGt?.textContent?.trim());
+  });
 }
 
 function extractFromNode(
