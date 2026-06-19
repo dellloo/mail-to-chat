@@ -131,9 +131,22 @@ interface RawMessage {
  * Zerlegt den HTML-Baum rekursiv in Nachrichten-Ebenen (neueste zuerst).
  * Destruktiv (arbeitet auf dem eigenen, frisch geparsten Document) - O(n).
  */
+/** Entfernt standalone Meta-Zeilen aus direkten Kindelementen eines Containers. */
+function cleanMetaLines(container: Element): void {
+  for (const child of Array.from(container.children)) {
+    const t = ((child as Element).textContent ?? '').trim().replace(/\s+/g, ' ');
+    if (t && t.length <= 300 && isMetaLine(t)) (child as Element).remove();
+  }
+}
+
 function splitLevels(container: Element, fallbackSender: Sender): RawMessage[] {
   const boundary = findQuoteBoundary(container);
   if (!boundary) {
+    // Auch ohne Quote-Boundary Meta-Zeilen bereinigen.
+    // Tritt auf wenn ein innerer blockquote NUR eine Attributions-Zeile enthält
+    // (z. B. "Am 09:36 schrieb Marjan <...>:" als Textelement ohne Blockquote-Wrapper).
+    // Ohne diesen Cleanup erscheint die Meta-Zeile als "Unbekannt"-Bubble.
+    cleanMetaLines(container);
     return [{ sender: fallbackSender, contentEl: container }];
   }
 
@@ -150,16 +163,8 @@ function splitLevels(container: Element, fallbackSender: Sender): RawMessage[] {
   quote.remove();
   meta?.remove();
 
-  // Cleanup: verbleibende Meta-Zeilen-Elemente im Container entfernen.
-  // Tritt auf wenn die Meta-Zeile SOWOHL in .gmail_attr (innerhalb .gmail_quote,
-  // bereits via quote.remove() entfernt) als AUCH als eigenständiges Element
-  // AUSSERHALB des Quote-Wrappers vorkommt — verursacht durch unterschiedliche
-  // E-Mail-Clients oder verschachtelte Weiterleitungs-Strukturen. Ohne diesen
-  // Cleanup erscheint "Am ... schrieb ...:" als eigenständige Bubble.
-  for (const child of Array.from(container.children)) {
-    const t = ((child as Element).textContent ?? '').trim().replace(/\s+/g, ' ');
-    if (t && t.length <= 300 && isMetaLine(t)) (child as Element).remove();
-  }
+  // Cleanup: verbleibende Meta-Zeilen nach dem Entfernen des Quote-Blocks.
+  cleanMetaLines(container);
 
   const quotedSender: Sender = parsedMeta?.sender ?? { name: 'Unbekannt' };
   const deeper = innerQuote ? splitLevels(innerQuote, quotedSender) : [];

@@ -515,6 +515,68 @@ function buildThreadMessages(settings: ChatSettings): MessageObject[] {
   );
 }
 
+/**
+ * Expandiert eingeklappte Gmail-Nachrichten damit ihre div.a3s-Bodies in den DOM geladen werden.
+ *
+ * Gmail rendert Bodies (div.a3s) nur für sichtbar-aufgeklappte Mails. In langen Threads
+ * mit vielen Nachrichten zeigt Gmail ältere Mails als "smart-collapsed" Headers ohne Body —
+ * getMessageNodes findet dann nur die letzten 1-2 Mails (die aufgeklappten).
+ *
+ * Fix: Jeden collapsed div.adn anklicken → Gmail rendert den Body.
+ * Mehrere Selektoren als Fallback da Gmail Klassen regelmäßig ändert.
+ * Nach dem Klicken warten bis div.a3s-Content erscheint (max 1.5s).
+ */
+async function expandCollapsedMessages(threadList: HTMLElement): Promise<boolean> {
+  const toExpand = Array.from(threadList.querySelectorAll<HTMLElement>('div.adn')).filter(
+    (n) =>
+      isVisible(n) &&
+      !n.querySelector('div.a3s')?.textContent?.trim() &&
+      !n.querySelector('div.ii.gt')?.textContent?.trim(),
+  );
+  if (toExpand.length === 0) return false;
+
+  log(`Expansion: ${toExpand.length} div.adn ohne Body-Content — klicke Header...`);
+
+  for (const node of toExpand) {
+    // Gmail-Header-Klick-Target: erster sichtbarer Element-Bereich im div.adn.
+    // Fallback-Kette: spezifische Gmail-Klassen → allgemeineres td → div.adn selbst.
+    const header =
+      node.querySelector<HTMLElement>('.gE.iv.gt') ??
+      node.querySelector<HTMLElement>('.gE') ??
+      node.querySelector<HTMLElement>('td.gF') ??
+      node.querySelector<HTMLElement>('td.gH') ??
+      node.querySelector<HTMLElement>('table.h7 td:first-child') ??
+      node;
+    if (isVisible(header)) header.click();
+  }
+
+  // Warten bis Gmail die Bodies gerendert hat (max 1.5s, Check alle 150ms)
+  await waitFor(
+    () => {
+      const stillEmpty = toExpand.filter(
+        (n) =>
+          !n.querySelector('div.a3s')?.textContent?.trim() &&
+          !n.querySelector('div.ii.gt')?.textContent?.trim(),
+      );
+      return stillEmpty.length === 0 ? true : null;
+    },
+    1500,
+    150,
+  );
+
+  const remaining = toExpand.filter(
+    (n) =>
+      !n.querySelector('div.a3s')?.textContent?.trim() &&
+      !n.querySelector('div.ii.gt')?.textContent?.trim(),
+  );
+  log(
+    remaining.length > 0
+      ? `Expansion: ${remaining.length}/${toExpand.length} Mails noch ohne Body (Gmail braucht Nutzer-Expansion).`
+      : `Expansion: alle ${toExpand.length} Mails erfolgreich expandiert.`,
+  );
+  return true;
+}
+
 function findListContainer(): HTMLElement | null {
   const nodes = getMessageNodes();
   const last = nodes[nodes.length - 1];
@@ -847,6 +909,14 @@ async function activate(deps: AdapterDeps): Promise<boolean> {
   // Sichtbarkeits-Filter in getMessageNodes() würde sonst beim Re-Render
   // (z. B. nach dem Senden) die versteckten Nachrichten nicht finden.
   deactivate();
+
+  // Eingeklappte Gmail-Nachrichten aufklappen damit ihre Bodies (div.a3s) in den DOM geladen werden.
+  // Gmail rendert Bodies nur für aufgeklappte Mails; in langen Threads sind ältere Mails
+  // "smart-collapsed" und haben kein Body-HTML bis sie expandiert werden.
+  const adnForExpand = Array.from(document.querySelectorAll<HTMLElement>('div.adn')).filter(isVisible);
+  const tlForExpand = adnForExpand[0]?.closest<HTMLElement>('[role="list"]');
+  if (tlForExpand) await expandCollapsedMessages(tlForExpand);
+
   const messages = buildThreadMessages(settings);
   if (messages.length === 0) {
     log('Aktivierung abgebrochen: 0 sichtbare Nachrichten gefunden (div.adn).');
