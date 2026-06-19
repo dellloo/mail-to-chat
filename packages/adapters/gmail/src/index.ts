@@ -471,32 +471,47 @@ function buildThreadMessages(settings: ChatSettings): MessageObject[] {
   const ownNames = [settings.ownName, account.name].filter((n): n is string => !!n && n.trim().length > 0);
 
   const nodes = getMessageNodes();
+  log(`getMessageNodes: ${nodes.length} Nodes mit Body-Inhalt gefunden (div.adn).`);
   if (nodes.length === 0) return [];
 
   // Quelle 1: alle aufgeklappten Mails aus dem DOM
   const domMsgs = nodes
     .map((n) => extractFromNode(n, ownEmails, ownNames, settings))
     .filter((m): m is MessageObject => m !== null);
+  log(`domMsgs: ${domMsgs.length} Nachrichten aus DOM-Nodes.`);
 
-  // Quelle 2: komplette Zitat-Historie aus der NEUESTEN Mail
-  const newest = nodes[nodes.length - 1] as HTMLElement;
-  const body = newest.querySelector<HTMLElement>('div.a3s');
+  // Quelle 2: BESTE Zitat-Kette aus ALLEN aufgeklappten Mails (nicht nur der neuesten).
+  //
+  // Problem: Die neueste Mail (z. B. kurze Antwort "Das ist gut...") zitiert oft
+  // NUR die unmittelbar vorherige Mail — quoteMsgs.length = domMsgs.length → kein Gewinn.
+  // Gmail lädt Mails älter als ~48h in langen Threads nicht in den DOM (lazy render);
+  // ihr Inhalt ist nur über die Zitat-Kette einer sichtbaren Mail erreichbar.
+  //
+  // Fix: alle Nodes als Zitat-Quelle probieren, längste Kette verwenden.
+  // Typischerweise enthält die VORLETZTE sichtbare Mail die vollständigste
+  // Kette (z. B. Lo's Zusammenfassung vom 18. Juni zitiert alle 8 Vorgänger).
   let quoteMsgs: MessageObject[] = [];
-  if (body) {
-    quoteMsgs = parseThread(body.innerHTML, {
+  for (const node of nodes) {
+    const body = node.querySelector<HTMLElement>('div.a3s');
+    if (!body?.textContent?.trim()) continue;
+    const parsed = parseThread(body.innerHTML, {
       ownEmails,
       ownName: ownNames[0],
       languages: settings.languages,
       filterSignatures: settings.filterSignatures,
     });
-    for (const m of quoteMsgs) {
+    for (const m of parsed) {
       if (!m.isOwn) m.isOwn = isOwnSender(m.sender, ownEmails, ownNames);
     }
+    if (parsed.length > quoteMsgs.length) quoteMsgs = parsed;
   }
+  log(`quoteMsgs: ${quoteMsgs.length} Nachrichten aus bester Zitat-Kette.`);
 
   // Cache-Anhaenge wieder anheften (eingeklappte Mails) + Reply-Kontext bereinigen
+  const merged = mergeThreadMessages(domMsgs, quoteMsgs);
+  log(`merged: ${merged.length} Nachrichten nach Merge (dom=${domMsgs.length}, quote=${quoteMsgs.length}).`);
   return pruneRedundantReplyTo(
-    applyCachedAttachments(mergeThreadMessages(domMsgs, quoteMsgs), loadAttCache()),
+    applyCachedAttachments(merged, loadAttCache()),
   );
 }
 
@@ -1430,6 +1445,7 @@ export function initGmailAdapter(deps: AdapterDeps): void {
     readonly state: object;
     readonly log: string[];
     dump(): void;
+    nodeInfo(): void;
     forceCheck(): void;
     readonly version: string;
   };
@@ -1459,6 +1475,36 @@ export function initGmailAdapter(deps: AdapterDeps): void {
       console.log('Version:', version, '· Instanz #' + String(myGen));
       console.table(DEBUG_LOG.map((e) => ({ ago: `-${((Date.now() - e.t) / 1000).toFixed(1)}s`, msg: e.msg })));
       console.log('State:', { ...this.state });
+      console.groupEnd();
+    },
+    nodeInfo() {
+      // Zeigt exakt welche div.adn im DOM vorhanden sind und ob Gmail ihre Bodies geladen hat.
+      // Aufruf: F12 → Console → Kontext-Dropdown → Extension-Context → __chatmailDebug.nodeInfo()
+      const all = Array.from(document.querySelectorAll<HTMLElement>('div.adn'));
+      const vis = all.filter(isVisible);
+      const tl = vis[0]?.closest<HTMLElement>('[role="list"]');
+      const inTl = tl ? Array.from(tl.querySelectorAll<HTMLElement>('div.adn')) : vis;
+      console.group('[Mail to Chat] nodeInfo()');
+      console.log(
+        `div.adn gesamt im DOM: ${all.length}`,
+        `| sichtbar: ${vis.length}`,
+        `| im Thread-Container: ${inTl.length}`,
+      );
+      console.table(
+        inTl.map((n, i) => {
+          const a3s = n.querySelector('div.a3s');
+          const iiGt = n.querySelector('div.ii.gt');
+          const sd = n.querySelector('span.gD');
+          return {
+            '#': i,
+            sender: sd?.getAttribute('name') ?? sd?.textContent?.trim() ?? '?',
+            visible: isVisible(n),
+            a3s_vorhanden: !!a3s,
+            a3s_zeichen: a3s?.textContent?.trim().length ?? 0,
+            iiGt_zeichen: iiGt?.textContent?.trim().length ?? 0,
+          };
+        }),
+      );
       console.groupEnd();
     },
     forceCheck() { log('forceCheck() via Debug-Handle'); scheduleCheck(); },
