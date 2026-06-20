@@ -1,6 +1,51 @@
 import { describe, expect, it } from 'vitest';
-import { detectForward } from '../src/forwards';
+import { detectForward, stripReplyQuote } from '../src/forwards';
 import { parseThread } from '../src/parser';
+import { splitSignature } from '../src/signature';
+
+describe('stripReplyQuote (flat-text Zitate abschneiden)', () => {
+  it('schneidet ab "Am … schrieb …:" ab', () => {
+    const t = 'Danke dir!\n\nAm 18.06.2026 um 09:36 schrieb Marjan <m@x.de>:\n\n> alter text';
+    expect(stripReplyQuote(t)).toBe('Danke dir!');
+  });
+  it('schneidet Outlook-Header (Von/Gesendet/An/Betreff) ab', () => {
+    const t = 'Neue Nachricht.\n\nVon: Lo Delle <lo@x.de>\nGesendet: Montag\nAn: Marjan\nBetreff: Re: Test\n\nalter inhalt';
+    expect(stripReplyQuote(t)).toBe('Neue Nachricht.');
+  });
+  it('entfernt die Gmail-Hinweiszeile "Sie erhalten nicht häufig…"', () => {
+    const t = 'Hallo,\nSie erhalten nicht häufig E-Mails von x@y.de.\nWie gehts?';
+    expect(stripReplyQuote(t)).toBe('Hallo,\nWie gehts?');
+  });
+  it('lässt eine normale Nachricht unangetastet', () => {
+    expect(stripReplyQuote('Nur ein Text\nmit zwei Zeilen.')).toBe('Nur ein Text\nmit zwei Zeilen.');
+  });
+});
+
+describe('Signatur: lange Firmen-Signatur vollständig einklappen', () => {
+  it('klappt ab "Mit freundlichen Grüßen" inkl. Kontakt/Recht ein', () => {
+    const text = [
+      'Hallo Lorenzo,',
+      'kümmere mich gerne darum.',
+      'Mit freundlichen Grüßen',
+      'Marjan Milosevic',
+      'Caritasverband der Erzdiözese München',
+      'Mobil: 0151 50 65 73 92',
+      'Fax: 089 992490729',
+      'Email: Marjan.Milosevic@caritasmuenchen.org',
+    ].join('\n');
+    const { body, signature } = splitSignature(text);
+    expect(body).toContain('kümmere mich gerne');
+    expect(body).not.toContain('Mit freundlichen Grüßen');
+    expect(body).not.toContain('Mobil');
+    expect(signature).toContain('Marjan Milosevic');
+    expect(signature).toContain('Email: Marjan');
+  });
+  it('kurzer persönlicher Gruß bleibt im Body', () => {
+    const { body, signature } = splitSignature('Danke!\nLiebe Grüße\nLorenzo');
+    expect(body).toContain('Liebe Grüße');
+    expect(signature).toBeUndefined();
+  });
+});
 
 describe('detectForward', () => {
   it('gibt null zurück ohne Forward-Marker', () => {

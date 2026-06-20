@@ -1,4 +1,4 @@
-import { detectForward } from './forwards';
+import { detectForward, stripReplyQuote } from './forwards';
 import { isMetaLine, parseMetaLine } from './metalines';
 import { splitSignature } from './signature';
 import type { Attachment, MessageObject, ParseOptions, Sender } from './types';
@@ -211,6 +211,10 @@ function buildMessage(raw: RawMessage, opts: ParseOptions): MessageObject {
       bodyHtml: escapeHtml(fwd.forward.body).replace(/\n/g, '<br>'),
     };
   }
+
+  // Flat-text-Zitat-Historie (Outlook-Header / "Am … schrieb …") + Gmail-Hinweiszeilen
+  // abschneiden — diese Antwort-Zitate haben kein blockquote und leakten sonst in den Bubble.
+  mainText = stripReplyQuote(mainText);
 
   let bodyText = mainText;
   let signatureHtml: string | undefined;

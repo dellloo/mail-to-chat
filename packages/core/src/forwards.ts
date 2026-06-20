@@ -8,6 +8,41 @@
  * Gmail-/Apple-/Outlook-Varianten in DE/EN/FR/ES/IT.
  */
 
+import { isMetaLine } from './metalines';
+
+/** Gmail-Hinweiszeilen ("Sie erhalten nicht häufig E-Mails von …"), die in den Body leaken. */
+const GMAIL_NOISE_RE =
+  /^(sie erhalten nicht häufig e-?mails von|you don'?t often get email from|erfahren sie, warum (dies|das) wichtig ist|learn why this is important)/i;
+
+/**
+ * Schneidet flat-text-Zitat-Historie am Ende einer Nachricht ab (Antwort-Zitate OHNE blockquote).
+ * Entfernt außerdem Gmail-Hinweiszeilen. Greift bei:
+ *  - "Am … schrieb …:" (Attributions-Metazeile)
+ *  - Outlook-Header "Von: …" gefolgt von Gesendet/An/Betreff in den nächsten Zeilen
+ * Alles AB dem ersten Marker ist zitierter Verlauf → weg (steht ohnehin als Bubble darüber).
+ */
+export function stripReplyQuote(text: string): string {
+  const lines = text.split('\n').filter((l) => !GMAIL_NOISE_RE.test(l.trim().replace(/\s+/g, ' ')));
+  let cut = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const l = (lines[i] ?? '').trim();
+    if (!l) continue;
+    if (isMetaLine(l)) {
+      cut = i;
+      break;
+    }
+    if (/^(von|from)\s*:\s*\S/i.test(l)) {
+      const ahead = lines.slice(i + 1, i + 6).map((x) => x.trim());
+      if (ahead.some((x) => /^(gesendet|sent|an|to|betreff|subject|datum|date)\s*:/i.test(x))) {
+        cut = i;
+        break;
+      }
+    }
+  }
+  const kept = cut < 0 ? lines : lines.slice(0, cut);
+  return kept.join('\n').replace(/\s+$/, '').trim();
+}
+
 /** Marker-Zeilen, die den Beginn einer weitergeleiteten / ursprünglichen Nachricht anzeigen. */
 const FORWARD_MARKERS: RegExp[] = [
   // Gmail-Stil: "---------- Weitergeleitete Nachricht / Forwarded message ----------"

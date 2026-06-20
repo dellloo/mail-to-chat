@@ -26,20 +26,24 @@ const DISCLAIMER_PHRASES = [
 const CLOSING_RE =
   /^\s*(mit freundlichen grüßen|viele grüße|beste grüße|liebe grüße|freundliche grüße|best regards|kind regards|regards|cheers|cordialement|saludos|cordiali saluti)\s*,?\s*$/i;
 
+/** Marker, die eine echte (lange) Signatur kennzeichnen: Kontaktdaten, Firmen-/Rechtsangaben. */
+const SIG_CONTENT_RE =
+  /@|vereinsregister|ust-?id|umsatzsteuer|gmbh|\be\.?\s?v\.?\b|\bag\b|str\.|stra[ßs]e|\bvorstand\b|gesch[äa]ftsf[üu]hr|tel\b|fax\b|mobil\b/i;
+
 export function findSignatureStart(lines: string[]): number {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? '';
     if (DELIMITER_RE.test(line)) return i;
     const lower = line.toLowerCase();
     if (DISCLAIMER_PHRASES.some((p) => lower.includes(p))) return i;
-    // Grußformel zählt nur als Signaturstart, wenn danach kein Fließtext mehr kommt.
+    // Grußformel auf eigener Zeile = Signaturbeginn — ABER nur bei einer echten, längeren
+    // Signatur (Name + Adresse + Kontakt + Rechtstext). So werden lange Firmen-Signaturen
+    // VOLLSTÄNDIG eingeklappt (früher scheiterte die <=8-Zeilen-Heuristik daran), während ein
+    // kurzer persönlicher Gruß ("Liebe Grüße, Lorenzo") sichtbar im Body bleibt.
     if (CLOSING_RE.test(line) && i > 0) {
       const rest = lines.slice(i + 1).filter((l) => l.trim().length > 0);
-      const looksLikeContactBlock =
-        rest.length <= 8 &&
-        rest.every((l) => l.trim().length < 80) &&
-        (rest.length === 0 || rest.some((l) => PHONE_FAX_RE.test(l)) || rest.length <= 4);
-      if (looksLikeContactBlock) return i;
+      const substantial = rest.length >= 3 || rest.some((l) => PHONE_FAX_RE.test(l) || SIG_CONTENT_RE.test(l));
+      if (substantial) return i;
     }
   }
   return -1;
