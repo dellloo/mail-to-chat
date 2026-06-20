@@ -111,6 +111,20 @@ Einzige CSS-Regel: Listitem-Container bekommt `bg` für nahtlose Ecken. Kein act
 **Was:** Zitierter Text soll einklappbar sein (wie in Gmail selbst), mit Badge "X Zeilen zitiert".
 **Impl:** Toggle-Animation + Badge im `packages/ui`.
 
+#### 3.4b Lade-Übergang bei langen Threads (Perceived Performance) — OFFEN
+
+**Problem:** Beim Öffnen LANGER Threads (Super-Collapse) sieht man ~1-2 s Gmails klassische
+Ansicht, bevor der Chat erscheint. Normale Threads sind seit v1.6.6 instant; der Flash betrifft
+fast nur lange Threads (Expansion + Parse dauern).
+**Harte Untergrenze:** Gmail rendert seine Classic-Ansicht ZUERST — die Extension kann erst
+transformieren, wenn das DOM existiert. Ganz auf 0 ist nicht möglich.
+**Lösungsweg (eigene fokussierte Runde):** Bei Thread-Öffnung (hashchange auf Thread-URL) SOFORT
+einen thread-bereichs-begrenzten Chat-Ladezustand über die Classic-Ansicht legen (NICHT
+vollflächig/persistent — das wirkte in früheren Iterationen ruckelig), dann Crossfade zum Chat.
+pointer-events:none, damit Super-Collapse-Klicks (elementFromPoint) weiter durchgehen.
+**Bewertung:** Machbarkeit mittel, Wirkung mittel (nur lange Threads), Risiko mittel (Lade-UX,
+an der schon iteriert wurde). Bewusst NICHT am Ende einer Session drangeflanscht. Prio P2.
+
 ---
 
 ### P3 — Zukunft
