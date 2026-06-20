@@ -13,7 +13,8 @@
     "test": "vitest run",
     "build": "node apps/chrome-ext/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "package": "node scripts/package.mjs"
+    "package": "node scripts/package.mjs",
+    "build:demo": "node scripts/build-demo.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",

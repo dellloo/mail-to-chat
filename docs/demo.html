@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mail to Chat — Demo</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 22px; padding: 40px 20px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #2b2f6b 0%, #14152b 45%, #0b0c18 100%);
+    color: #eceef2; }
+  .head { text-align: center; }
+  .head h1 { margin: 0; font-size: 30px; letter-spacing: -0.5px; }
+  .head p { margin: 6px 0 0; opacity: 0.72; font-size: 16px; }
+  .window { width: min(840px, 96vw); height: 660px; border-radius: 18px; overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.55), 0 2px 0 rgba(255,255,255,0.05) inset;
+    display: flex; flex-direction: column; background: #1a1d23; }
+  .titlebar { height: 38px; flex: 0 0 38px; display: flex; align-items: center; gap: 8px;
+    padding: 0 14px; background: #23262e; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .r { background: #ff5f57; } .y { background: #febc2e; } .g { background: #28c840; }
+  .titlebar span { margin-left: 10px; font-size: 13px; opacity: 0.6; }
+  #cm-slot { flex: 1; min-height: 0; }
+  #cm-themes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  #cm-themes button { border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.06);
+    color: #eceef2; padding: 7px 14px; border-radius: 999px; font-size: 13px; cursor: pointer;
+    transition: all 0.15s; }
+  #cm-themes button:hover { background: rgba(255,255,255,0.12); }
+  #cm-themes button.on { background: #e6b400; color: #1a1a1a; border-color: #e6b400; font-weight: 700; }
+  .foot { opacity: 0.5; font-size: 13px; }
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>💬 Mail to Chat</h1>
+    <p>Aus dem E-Mail-Chaos wird ein klarer Chat — wie WhatsApp, aber für deine Mails.</p>
+  </div>
+  <div class="window">
+    <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span>Mail to Chat — Demo</span></div>
+    <div id="cm-slot"></div>
+  </div>
+  <div id="cm-themes"></div>
+  <div class="foot">100% lokal · Open Source (GPL-3.0) · fiktive Demo-Inhalte</div>
+<script>"use strict";(()=>{var T=[{id:"whatsapp",label:"WhatsApp",ownBubble:"#25D366",ownText:"#0b3d1f",otherBubble:"#FFFFFF",otherText:"#111111",background:"#E5DDD5",radius:12},{id:"bumblebee",label:"Bumblebee",ownBubble:"#e6b400",ownText:"#1a1a1a",otherBubble:"#23262e",otherText:"#eceef2",background:"#101216",radius:12,dark:!0},{id:"imessage",label:"iMessage",ownBubble:"#007AFF",ownText:"#FFFFFF",otherBubble:"#E9E9EB",otherText:"#111111",background:"#FFFFFF",radius:18},{id:"imessage-dark",label:"iMessage Dark",ownBubble:"#0B84FF",ownText:"#FFFFFF",otherBubble:"#3A3A3C",otherText:"#F2F2F7",background:"#000000",radius:18,dark:!0},{id:"telegram",label:"Telegram",ownBubble:"linear-gradient(135deg, #4ea4f6 0%, #2a7cd4 100%)",ownText:"#FFFFFF",otherBubble:"#FFFFFF",otherText:"#111111",background:"#DCDDE1",radius:14},{id:"signal",label:"Signal",ownBubble:"#2C6BED",ownText:"#FFFFFF",otherBubble:"#FFFFFF",otherText:"#111111",background:"#F6F6F6",radius:16},{id:"slack",label:"Slack",ownBubble:"#4A154B",ownText:"#FFFFFF",otherBubble:"#F2F2F2",otherText:"#111111",background:"#FFFFFF",radius:8},{id:"teams",label:"Microsoft Teams",ownBubble:"#6264A7",ownText:"#FFFFFF",otherBubble:"#F0F0F0",otherText:"#111111",background:"#FFFFFF",radius:8},{id:"discord",label:"Discord",ownBubble:"#5865F2",ownText:"#FFFFFF",otherBubble:"#40444B",otherText:"#DCDDDE",background:"#36393F",radius:10,dark:!0},{id:"android",label:"Android Messages",ownBubble:"#1A73E8",ownText:"#FFFFFF",otherBubble:"#F1F3F4",otherText:"#111111",background:"#FFFFFF",radius:18},{id:"sms",label:"SMS Classic",ownBubble:"#007AFF",ownText:"#FFFFFF",otherBubble:"#E5E5EA",otherText:"#111111",background:"#FFFFFF",radius:14},{id:"minimal",label:"Minimal",ownBubble:"transparent",ownText:"inherit",otherBubble:"transparent",otherText:"inherit",background:"transparent",radius:0,minimal:!0}];function O(t){return T.find(n=>n.id===t)??T[0]}var D={themeId:"whatsapp",custom:{ownBubble:"#25D366",ownText:"#ffffff",otherBubble:"#f1f1f1",otherText:"#111111",background:"#e5ddd5",radius:12},fontSize:"normal",timestamps:"always",darkMode:"system",ownEmails:[],ownName:"",filterSignatures:!0,showAttachments:!0,autoActivate:!0,showDateSeparators:!0,languages:["de","en","fr","es","it"],uiLanguage:"de",chatThemeSeparate:!1,htmlSafeBg:!0,gmailSkin:{enabled:!1,accent:"#e6b400",bg:"#101216",surface:"#1a1d23",text:"#eceef2",radius:12,font:"",compact:!1,flair:"none"}};var W={januar:0,februar:1,m\u00E4rz:2,april:3,mai:4,juni:5,juli:6,august:7,september:8,oktober:9,november:10,dezember:11},C={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};function E(t,n,o){if(n<0||n>11||o<1||o>31||t<1990||t>2100)return null;let r=new Date(t,n,o);return Number.isNaN(r.getTime())?null:r}var Q="(januar|februar|m\xE4rz|april|mai|juni|juli|august|september|oktober|november|dezember)",L="(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)";function z(t,n=new Date){if(!t)return null;let o=t.trim(),r=o.toLowerCase(),e=o.match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);if(e){let m=Number(e[3]);return m<100&&(m+=2e3),E(m,Number(e[2])-1,Number(e[1]))}if(e=r.match(new RegExp(`(\\d{1,2})\\.?\\s+${Q}\\s+(\\d{4})`)),e)return E(Number(e[3]),W[e[2]]??-1,Number(e[1]));if(e=r.match(new RegExp(`\\b${L}[a-z]*\\.?\\s+(\\d{1,2}),?\\s+(\\d{4})`)),e)return E(Number(e[3]),C[e[1]]??-1,Number(e[2]));if(e=r.match(new RegExp(`\\b(\\d{1,2})\\.?\\s+${L}[a-z]*\\.?\\s+(\\d{4})`)),e)return E(Number(e[3]),C[e[2]]??-1,Number(e[1]));if(e=r.match(new RegExp(`(\\d{1,2})\\.?\\s+${Q}`)),e)return E(n.getFullYear(),W[e[2]]??-1,Number(e[1]));if(e=r.match(new RegExp(`\\b${L}[a-z]*\\.?\\s+(\\d{1,2})\\b`)),e)return E(n.getFullYear(),C[e[1]]??-1,Number(e[2]));if(e=r.match(new RegExp(`\\b(\\d{1,2})\\.?\\s+${L}[a-z]*\\b`)),e)return E(n.getFullYear(),C[e[2]]??-1,Number(e[1]));let s=Date.parse(o.replace(/\b(um|Uhr)\b/gi,"").trim());if(Number.isNaN(s))return null;let l=new Date(s);return l.getFullYear()<2005&&!/\b(19|20)\d{2}\b/.test(o)&&l.setFullYear(n.getFullYear()),l.getFullYear()>=1995&&l.getFullYear()<=2100?l:null}function j(t){return`${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`}function I(t,n,o=new Date){let r=new Date(o.getFullYear(),o.getMonth(),o.getDate()),e=new Date(t.getFullYear(),t.getMonth(),t.getDate()),s=Math.round((r.getTime()-e.getTime())/864e5);return s===0?n==="de"?"Heute":"Today":s===1?n==="de"?"Gestern":"Yesterday":e.toLocaleDateString(n==="de"?"de-DE":"en-US",{day:"2-digit",month:"2-digit",year:"numeric"})}function h(t,n="1em"){return`<svg xmlns="http://www.w3.org/2000/svg" width="${n}" height="${n}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-0.125em;flex-shrink:0">${t}</svg>`}var y={chat:h('<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/>'),mail:h('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>'),gear:h('<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>'),send:h('<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>'),attach:h('<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>'),print:h('<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/>'),reply:h('<polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>'),forward:h('<polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/>'),copy:h('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'),search:h('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>'),coffee:h('<path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" x2="6" y1="2" y2="4"/><line x1="10" x2="10" y1="2" y2="4"/><line x1="14" x2="14" y1="2" y2="4"/>')};var Z=["#e57373","#64b5f6","#81c784","#ffb74d","#ba68c8","#4db6ac","#f06292","#a1887f"],v={de:{showSig:"Signatur anzeigen",attachment:"Anhang",image:"Bild",openOriginal:"Original \xF6ffnen \u2197",placeholder:"Nachricht",send:"Senden (Enter)",fullEditor:"Voller Gmail-Editor: Formatierung, Anh\xE4nge, CC/BCC",sendFailed:"Senden fehlgeschlagen - bitte im klassischen Editor versuchen",exportPdf:"Als PDF exportieren",contactTitle:"Kontakt",copyMail:"E-Mail kopieren",copied:"Kopiert \u2713",searchMails:"Alle Mails dieser Person",noMail:"E-Mail unbekannt",replyOne:"Auf diese Mail antworten",forwardOne:"Diese Mail weiterleiten",attach:"Anhang hinzuf\xFCgen (\xF6ffnet Gmail-Editor mit Dateiauswahl)",fwd:"Weitergeleitet"},en:{showSig:"Show signature",attachment:"Attachment",image:"Image",openOriginal:"Open original \u2197",placeholder:"Message",send:"Send (Enter)",fullEditor:"Full Gmail editor: formatting, attachments, CC/BCC",sendFailed:"Send failed - please use the classic editor",exportPdf:"Export as PDF",contactTitle:"Contact",copyMail:"Copy email",copied:"Copied \u2713",searchMails:"All mails from this person",noMail:"Email unknown",replyOne:"Reply to this mail",forwardOne:"Forward this mail",attach:"Add attachment (opens Gmail editor with file picker)",fwd:"Forwarded"}},ge={small:"12.5px",normal:"14px",large:"16px"};function p(t){return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}function q(t){let n=t.trim().split(/\s+/).filter(e=>/[\p{L}\p{N}]/u.test(e));if(n.length===0)return"?";let o=[...n[0]??""][0]??"?",r=n.length>1?[...n[n.length-1]??""][0]??"":"";return(o+r).toUpperCase()}function J(t){let n=t.replace("#","");if(!/^[0-9a-f]{6}$/i.test(n))return!1;let o=parseInt(n.slice(0,2),16),r=parseInt(n.slice(2,4),16),e=parseInt(n.slice(4,6),16);return(.2126*o+.7152*r+.0722*e)/255<.45}function R(t){return!!t.dark||t.id==="custom"&&J(t.background)}function X(t){return t.themeId==="custom"?{id:"custom",label:"Custom",ownBubble:t.custom.ownBubble,ownText:t.custom.ownText,otherBubble:t.custom.otherBubble,otherText:t.custom.otherText,background:t.custom.background,radius:t.custom.radius}:O(t.themeId)}function _(t){let n=X(t),o=R(n),r=n.minimal?"color-mix(in srgb, currentColor 55%, transparent)":o?"rgba(255,255,255,0.55)":"rgba(0,0,0,0.45)";return`
+/* all:initial isoliert gegen Gmail-CSS - ABER color muss explizit wieder
+   vererbt werden, sonst ist das Minimal-Theme auf Gmail-Dark unlesbar
+   (Text faellt auf initial = schwarz zurueck statt Gmails heller Schrift). */
+:host { all: initial; color: inherit; }
+/* Variablen auf :host UND .cm-chat - Kontaktkarte/Lightbox liegen als
+   Geschwister von .cm-chat im Shadow Root und brauchen sie ebenfalls. */
+:host, .cm-chat {
+  --cm-own-bubble: ${n.ownBubble};
+  --cm-own-text: ${n.ownText};
+  --cm-other-bubble: ${n.otherBubble};
+  --cm-other-text: ${n.otherText};
+  --cm-bg: ${n.background};
+  --cm-radius: ${n.radius}px;
+  --cm-meta: ${r};
+  --cm-input-bg: ${o?"rgba(255,255,255,0.09)":"#ffffff"};
+  --cm-input-text: ${o?"#eceef2":"#16181d"};
+  --cm-card-bg: ${o?"#23262d":"#ffffff"};
+  --cm-font-size: ${ge[t.fontSize]};
+}
+.cm-chat {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: var(--cm-font-size);
+  line-height: 1.45;
+  letter-spacing: 0.1px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  background: var(--cm-bg);
+  padding: 18px 16px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+.cm-empty {
+  text-align: center; padding: 36px 16px; color: var(--cm-meta);
+  font-size: 1.05em;
+}
+@keyframes cmIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+.cm-row { display: flex; flex-direction: column; max-width: 100%; animation: cmIn 0.28s cubic-bezier(0.21, 1.02, 0.55, 1) both; margin-top: 10px; }
+/* Nachrichten-Gruppierung: gleiche Absender r\xFCcken zusammen (Messenger-Pattern) */
+.cm-row.grp-mid, .cm-row.grp-end { margin-top: 2px; }
+@media (prefers-reduced-motion: reduce) { .cm-row { animation: none; } }
+.cm-row.own { align-items: flex-end; }
+.cm-row.other { align-items: flex-start; }
+.cm-avatar-spacer { width: 30px; flex-shrink: 0; }
+.cm-msg { display: flex; gap: 8px; align-items: flex-end; max-width: 82%; }
+.cm-avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  background: var(--cm-sender-color, #90a4ae); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.3px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  user-select: none;
+}
+.cm-stack { display: flex; flex-direction: column; min-width: 0; }
+.cm-bubble {
+  position: relative;
+  padding: 8px 12px;
+  border-radius: var(--cm-radius);
+  background: var(--cm-other-bubble);
+  color: var(--cm-other-text);
+  overflow-wrap: break-word;
+  word-break: break-word;
+  box-shadow: 0 1px 1.5px rgba(0,0,0,0.1);
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+.cm-bubble:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.16); transform: translateY(-1px); }
+@media (prefers-reduced-motion: reduce) { .cm-bubble, .cm-bubble:hover { transition: none; transform: none; } }
+.cm-row.own .cm-bubble { background: var(--cm-own-bubble); color: var(--cm-own-text); }
+/* Gruppen-Eckenlogik: innere Ecken zur Gespr\xE4chsseite hin abgeflacht */
+.cm-row.own.grp-start .cm-bubble { border-bottom-right-radius: 6px; }
+.cm-row.own.grp-mid .cm-bubble { border-top-right-radius: 6px; border-bottom-right-radius: 6px; }
+.cm-row.own.grp-end .cm-bubble { border-top-right-radius: 6px; }
+.cm-row.other.grp-start .cm-bubble { border-bottom-left-radius: 6px; }
+.cm-row.other.grp-mid .cm-bubble { border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
+.cm-row.other.grp-end .cm-bubble { border-top-left-radius: 6px; }
+/* Bubble-Schw\xE4nzchen am Gruppenende (background:inherit tr\xE4gt auch Gradients) */
+.cm-row.own.grp-end .cm-bubble, .cm-row.own.grp-solo .cm-bubble { border-bottom-right-radius: 4px; }
+.cm-row.other.grp-end .cm-bubble, .cm-row.other.grp-solo .cm-bubble { border-bottom-left-radius: 4px; }
+.cm-row.own.grp-end .cm-bubble::after, .cm-row.own.grp-solo .cm-bubble::after {
+  content: ''; position: absolute; bottom: 0; right: -6px; width: 12px; height: 14px;
+  background: inherit; clip-path: polygon(0 0, 100% 100%, 0 100%);
+}
+.cm-row.other.grp-end .cm-bubble::after, .cm-row.other.grp-solo .cm-bubble::after {
+  content: ''; position: absolute; bottom: 0; left: -6px; width: 12px; height: 14px;
+  background: inherit; clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+.cm-chat.minimal .cm-bubble::after { display: none; }
+.cm-chat.minimal .cm-bubble { background: transparent; box-shadow: none; padding: 2px 0; }
+.cm-chat.minimal .cm-bubble:hover { transform: none; box-shadow: none; }
+.cm-chat.minimal .cm-row.own .cm-bubble { font-weight: 600; text-align: right; }
+.cm-chat.minimal .cm-avatar { display: none; }
+.cm-sender { font-size: 0.8em; font-weight: 600; margin-bottom: 2px; color: var(--cm-sender-color, var(--cm-meta)); }
+/* WhatsApp-Style Antwort-Kontext: worauf wurde geantwortet */
+.cm-quote {
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 6px 10px; margin-bottom: 6px; border-radius: 8px;
+  border-left: 3px solid color-mix(in srgb, currentColor 55%, transparent);
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  font-size: 0.86em;
+}
+.cm-quote[data-cm-jump] { cursor: pointer; transition: background 0.15s; }
+.cm-quote[data-cm-jump]:hover { background: color-mix(in srgb, currentColor 18%, transparent); }
+.cm-quote-name { font-weight: 700; font-size: 0.92em; opacity: 0.9; }
+.cm-quote-text { opacity: 0.75; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.cm-quote-time { opacity: 0.5; font-size: 0.85em; font-variant-numeric: tabular-nums; }
+@keyframes cmFlash { 30% { box-shadow: 0 0 0 3px var(--cm-own-bubble); } }
+.cm-row.cm-flash .cm-bubble { animation: cmFlash 1.1s ease; }
+.cm-time { font-size: 0.72em; color: var(--cm-meta); margin-top: 3px; padding: 0 4px; font-variant-numeric: tabular-nums; }
+.cm-row.own .cm-time { text-align: right; }
+.cm-chat.ts-hover .cm-time { opacity: 0; transition: opacity 0.15s; }
+.cm-chat.ts-hover .cm-row:hover .cm-time { opacity: 1; }
+.cm-chat.ts-hidden .cm-time { display: none; }
+/* Dark Mode: Original-Mails sind f\xFCr WEISSEN Hintergrund designt (Inline-Farben).
+   In dunklen Themes werden Textfarben/Hintergr\xFCnde innerhalb der Bubbles
+   neutralisiert, damit nie dunkle Schrift auf dunklem Grund landet. */
+.cm-chat.dark .cm-body, .cm-chat.dark .cm-body * {
+  color: var(--cm-other-text) !important;
+  background: transparent !important;
+  border-color: rgba(255,255,255,0.25) !important;
+}
+.cm-chat.dark .cm-row.own .cm-body, .cm-chat.dark .cm-row.own .cm-body * { color: var(--cm-own-text) !important; }
+.cm-chat.dark .cm-body a, .cm-chat.dark .cm-body a * { color: #8ab4f8 !important; text-decoration: underline; }
+.cm-chat.dark .cm-body img { background: transparent !important; }
+/* HTML Safe Mode: wei\xDFer Container f\xFCr Mail-Inhalte bei dunklen Themes.
+   HTML-Mails sind f\xFCr wei\xDFen Hintergrund designt - Inline-Farben wie
+   color:#000 w\xE4ren auf dunklem Bubble-BG unsichtbar. Safe Mode gibt dem
+   Body-Container explizit wei\xDFen Grund und l\xE4sst Mail-eigene Inline-Styles
+   wieder greifen. H\xF6here Spezifit\xE4t (.dark.html-safe) schl\xE4gt .dark-Regeln
+   selbst bei !important (CSS-Priorit\xE4t: gleich important \u2192 h\xF6here Spezifit\xE4t). */
+.cm-chat.dark.html-safe .cm-body {
+  /* Inset box-shadow statt Gradient: kein CSS-transparent-Grau-Problem.
+     Wei\xDFer Hintergrund + Bubble-Farbe als inset shadow an den Kanten.
+     border-radius = Bubble-Radius minus Bubble-Padding (8px) \u2192 nahtlose Ecken. */
+  background: #ffffff !important;
+  color: #1a1a1a !important;
+  padding: 10px 14px; margin: 4px 0;
+  border-radius: max(0px, calc(var(--cm-radius) - 8px));
+  overflow: hidden;
+}
+.cm-chat.dark.html-safe .cm-row.other .cm-body {
+  box-shadow: inset 0 0 14px 3px var(--cm-other-bubble);
+}
+.cm-chat.dark.html-safe .cm-row.own .cm-body {
+  box-shadow: inset 0 0 14px 3px var(--cm-own-bubble);
+}
+.cm-chat.dark.html-safe .cm-body * { color: unset !important; background: unset !important; border-color: unset !important; }
+.cm-chat.dark.html-safe .cm-body img { background: transparent !important; max-width: 100% !important; }
+.cm-chat.dark.html-safe .cm-body a { color: #0066cc !important; text-decoration: underline; }
+.cm-body img { max-width: 100%; height: auto !important; border-radius: 8px; cursor: zoom-in; transition: filter 0.15s; }
+.cm-body img:hover { filter: brightness(1.06); }
+/* Newsletter-H\xE4rtung: feste Breiten (600px-Tabellen etc.) werden fluid,
+   nichts darf die Bubble sprengen - egal wie wild das Mail-HTML ist. */
+.cm-body table { width: 100% !important; height: auto !important; table-layout: auto !important; }
+.cm-body * { max-width: 100% !important; min-width: 0 !important; }
+.cm-body a { color: inherit; text-decoration: underline; }
+.cm-body p, .cm-body div { margin: 0 0 0.4em 0; }
+.cm-body > *:last-child { margin-bottom: 0; }
+.cm-sig { margin-top: 6px; font-size: 0.85em; }
+.cm-sig summary { cursor: pointer; color: var(--cm-meta); list-style: none; user-select: none; transition: opacity 0.15s; }
+.cm-sig summary:hover { opacity: 0.7; }
+.cm-sig summary::before { content: '\u25B8 '; }
+.cm-sig[open] summary::before { content: '\u25BE '; }
+.cm-sig-body { margin-top: 4px; opacity: 0.75; animation: cmIn 0.18s ease both; }
+/* Weitergeleitete Nachricht: eingeklappter Block mit Vorschau (Absender + Betreff + 1. Satz) */
+.cm-fwd {
+  margin-top: 8px; border-left: 3px solid color-mix(in srgb, currentColor 35%, transparent);
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  border-radius: 8px; padding: 7px 10px; font-size: 0.9em;
+}
+.cm-fwd-sum { cursor: pointer; list-style: none; user-select: none; display: flex; flex-direction: column; gap: 2px; }
+.cm-fwd-sum::-webkit-details-marker { display: none; }
+.cm-fwd-tag { font-weight: 700; font-size: 0.92em; display: flex; align-items: center; gap: 4px; }
+.cm-fwd-tag::after { content: '\u25B8'; margin-left: auto; font-weight: 400; opacity: 0.6; transition: transform 0.15s; }
+.cm-fwd[open] .cm-fwd-tag::after { transform: rotate(90deg); }
+.cm-fwd-prev { opacity: 0.7; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+.cm-fwd-body { margin-top: 7px; padding-top: 7px; border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent); opacity: 0.9; animation: cmIn 0.18s ease both; }
+.cm-atts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.cm-att-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(0,0,0,0.07); border-radius: 999px;
+  padding: 4px 12px; font-size: 0.8em; text-decoration: none; color: inherit;
+  transition: background 0.15s, transform 0.15s;
+}
+.cm-att-chip:hover { background: rgba(0,0,0,0.13); transform: translateY(-1px); }
+.cm-att-img {
+  max-width: 200px; max-height: 150px; border-radius: 10px; display: block;
+  object-fit: cover; cursor: zoom-in;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.cm-att-img:hover { transform: scale(1.025); box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
+
+/* ---------- Toolbar, Datums-Trenner, Reaktionen ---------- */
+.cm-toolbar { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 4px; }
+.cm-tool {
+  border: none; border-radius: 999px; padding: 5px 13px; cursor: pointer;
+  font-size: 0.82em; font-family: inherit; font-weight: 600;
+  background: var(--cm-input-bg); color: var(--cm-input-text);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
+  transition: transform 0.15s, filter 0.15s;
+}
+.cm-tool { display: inline-flex; align-items: center; gap: 6px; }
+.cm-tool:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.cm-day {
+  align-self: center; font-size: 0.75em; font-weight: 600;
+  color: var(--cm-meta); background: var(--cm-input-bg);
+  border-radius: 999px; padding: 3px 14px; margin: 4px 0;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  animation: cmIn 0.28s ease both;
+}
+.cm-stack { position: relative; }
+.cm-avatar { cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.cm-avatar:hover { transform: scale(1.12); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+
+/* Pro-Nachricht-Aktionen (Hover): Antworten / Weiterleiten */
+.cm-actions {
+  position: absolute; top: -14px; display: flex; gap: 4px; z-index: 5;
+  opacity: 0; transform: translateY(4px) scale(0.92);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+}
+.cm-row.other .cm-actions { right: 6px; }
+.cm-row.own .cm-actions { left: 6px; }
+.cm-stack:hover .cm-actions { opacity: 1; transform: none; pointer-events: auto; }
+.cm-act {
+  width: 28px; height: 28px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--cm-card-bg); color: var(--cm-input-text); font-size: 13px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.22), 0 0 0 1px rgba(128,128,128,0.15);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.cm-act:hover { transform: scale(1.18); }
+
+/* ---------- Kontaktkarte (Avatar-Klick) ---------- */
+.cm-contact {
+  position: fixed; z-index: 2147483646; min-width: 230px; max-width: 300px;
+  background: var(--cm-card-bg, #ffffff); color: var(--cm-input-text, #16181d);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  border-radius: 14px; padding: 14px 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(128,128,128,0.15);
+  animation: cmIn 0.18s ease both;
+  font-size: 13px;
+}
+.cm-contact .cm-c-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.cm-contact .cm-c-avatar {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  background: var(--cm-c-color, #90a4ae); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+}
+.cm-contact .cm-c-name { font-weight: 700; font-size: 14px; }
+.cm-contact .cm-c-mail { opacity: 0.7; word-break: break-all; }
+.cm-contact .cm-c-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.cm-contact button, .cm-contact a {
+  border: none; border-radius: 8px; padding: 7px 12px; cursor: pointer;
+  font: inherit; font-weight: 600; text-align: center; text-decoration: none;
+  background: rgba(128,128,128,0.14); color: inherit;
+  transition: background 0.15s, transform 0.15s;
+}
+.cm-contact button:hover, .cm-contact a:hover { background: rgba(128,128,128,0.26); transform: translateY(-1px); }
+
+/* ---------- Composer (direkt antworten) ---------- */
+.cm-composer {
+  display: flex; gap: 8px; align-items: flex-end;
+  margin-top: 10px; position: sticky; bottom: 6px;
+}
+.cm-comp-input {
+  flex: 1; resize: none; border: none; outline: none;
+  border-radius: 20px; padding: 10px 16px; font: inherit; line-height: 1.4;
+  background: var(--cm-input-bg); color: var(--cm-input-text);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1), 0 1px 4px rgba(0,0,0,0.08);
+  transition: box-shadow 0.15s; max-height: 120px;
+}
+.cm-comp-input:focus { box-shadow: inset 0 0 0 2px var(--cm-own-bubble), 0 1px 6px rgba(0,0,0,0.12); }
+.cm-comp-send, .cm-comp-full {
+  width: 40px; height: 40px; border-radius: 50%; border: none; flex-shrink: 0;
+  cursor: pointer; font-size: 15px; display: flex; align-items: center; justify-content: center;
+  transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s;
+}
+.cm-comp-send { background: var(--cm-own-bubble); color: var(--cm-own-text); box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+.cm-comp-send:hover { transform: scale(1.1); filter: brightness(1.06); }
+.cm-comp-full { background: var(--cm-input-bg); color: var(--cm-input-text); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1); font-weight: 700; font-size: 13px; }
+.cm-comp-full:hover { transform: scale(1.08); }
+.cm-comp-send:active, .cm-comp-full:active, .cm-tool:active, .cm-act:active, .cm-contact button:active { transform: scale(0.92); }
+.cm-comp-send:focus-visible, .cm-comp-full:focus-visible, .cm-tool:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--cm-own-bubble); }
+.cm-composer.sending .cm-comp-send { opacity: 0.55; cursor: progress; animation: cmPulse 1s ease infinite; }
+@keyframes cmPulse { 50% { transform: scale(0.92); } }
+.cm-composer.error .cm-comp-input { box-shadow: inset 0 0 0 2px #e53935; }
+
+/* ---------- Lightbox ---------- */
+.cm-lb {
+  position: fixed; inset: 0; z-index: 2147483646;
+  background: rgba(10, 10, 12, 0.82);
+  backdrop-filter: blur(6px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+}
+.cm-lb.open { opacity: 1; pointer-events: auto; }
+.cm-lb img {
+  max-width: 90vw; max-height: 84vh; border-radius: 12px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+  transform: scale(0.96); transition: transform 0.22s cubic-bezier(0.21, 1.02, 0.55, 1);
+}
+.cm-lb.open img { transform: scale(1); }
+.cm-lb-x {
+  position: absolute; top: 18px; right: 22px;
+  width: 38px; height: 38px; border-radius: 50%; border: none;
+  background: rgba(255,255,255,0.12); color: #fff; font-size: 17px;
+  cursor: pointer; transition: background 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.cm-lb-x:hover { background: rgba(255,255,255,0.25); }
+.cm-lb-cap { color: rgba(255,255,255,0.8); font-size: 13px; max-width: 80vw; text-align: center; }
+.cm-lb-open {
+  color: rgba(255,255,255,0.85); font-size: 13px; text-decoration: none;
+  background: rgba(255,255,255,0.1); padding: 7px 16px; border-radius: 999px;
+  transition: background 0.15s;
+}
+.cm-lb-open:hover { background: rgba(255,255,255,0.22); }
+
+/* ---------- Smart Quote-Collapse ---------- */
+/* blockquote-Inhalte in Chat-Bubbles werden standardm\xE4\xDFig eingeklappt.
+   Ein Badge-Button zeigt die Zeilenzahl; Klick klappt auf/zu mit Animation. */
+.cm-bq-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: none; border-radius: 999px; cursor: pointer;
+  font-size: 0.78em; font-weight: 600; font-family: inherit;
+  padding: 3px 11px; margin: 4px 0;
+  background: color-mix(in srgb, currentColor 11%, transparent);
+  color: inherit; opacity: 0.6; line-height: 1.6;
+  transition: opacity 0.15s, background 0.15s;
+  user-select: none;
+}
+.cm-bq-btn:hover { opacity: 1; background: color-mix(in srgb, currentColor 19%, transparent); }
+.cm-bq-btn:active { transform: scale(0.95); }
+.cm-bq-content {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.22s cubic-bezier(0.22,1,0.36,1), opacity 0.18s ease;
+}
+.cm-bq-content.cm-bq-open {
+  max-height: 2000px;
+  opacity: 1;
+}
+/* Lightbox nicht durch max-height blockieren */
+.cm-lb .cm-bq-content { max-height: none !important; opacity: 1 !important; }
+`}function P(t,n){let o=X(n),r=v[n.uiLanguage]??v.de,e=new Map,s=0,l=a=>{let u=e.get(a);return u||(u=Z[s%Z.length],e.set(a,u),s++),u},d=new Set(t.filter(a=>!a.isOwn).map(a=>a.sender.email??a.sender.name)).size>1,i="",c=t.map(a=>{if(!n.showDateSeparators)return"";let u=z(a.timestamp);if(u&&u.getFullYear()>=2005&&u.getFullYear()<=2100){let x=j(u);if(x!==i)return i=x,`<div class="cm-day">${p(I(u,n.uiLanguage))}</div>
+`}return""}),g=a=>`${a.isOwn?"me":""}|${a.sender.email??a.sender.name}`,f=a=>{let u=t[a],x=a>0&&g(t[a-1])===g(u)&&c[a]==="",w=a<t.length-1&&g(t[a+1])===g(u)&&c[a+1]==="";return x&&w?"mid":x?"end":w?"start":"solo"},k=a=>a.toLowerCase().replace(/[^a-z0-9äöüß]/g,""),Y=(a,u)=>{let x=k(a).slice(0,40);return x.length<12?-1:t.findIndex((w,H)=>H<u&&k(w.bodyText).includes(x))},te=t.map((a,u)=>{let x=c[u]??"",w=f(u),H=a.isOwn?"own":"other",re=a.sender.email??a.sender.name,A=a.isOwn?"":l(re),ae=[A?`--cm-sender-color:${A}`:"",`animation-delay:${Math.min(u*35,420)}ms`].filter(Boolean).join(";"),oe=!a.isOwn&&(w==="end"||w==="solo"),ie=a.isOwn?"":oe?`<div class="cm-avatar" data-cm-name="${p(a.sender.name)}" data-cm-email="${p(a.sender.email??"")}" data-cm-color="${A}" title="${p(a.sender.name)}">${p(q(a.sender.name))}</div>`:'<div class="cm-avatar-spacer"></div>',se=!a.isOwn&&d&&(w==="start"||w==="solo")?`<div class="cm-sender">${p(a.sender.name)}</div>`:"",V="",F=a.replyTo?Y(a.replyTo.preview,u):-1;if(F>=0){let b=t[F];if(!(b.sender.name===a.sender.name&&(b.sender.email??"")===(a.sender.email??""))){let N=b.bodyText.replace(/\s+/g," ").trim().slice(0,70);V=`<div class="cm-quote" data-cm-jump="${F}" role="button" tabindex="0"><span class="cm-quote-name">${p(b.sender.name)}</span><span class="cm-quote-text">${p(N)}</span></div>`}}let ce=a.signatureHtml?`<details class="cm-sig"><summary>${r.showSig}</summary><div class="cm-sig-body">${a.signatureHtml}</div></details>`:"",B="";if(a.forwarded&&F<0){let b=a.forwarded.bodyHtml.replace(/<[^>]+>/g," "),M=Y(b,u);if(M>=0){let N=t[M];B=`<div class="cm-quote" data-cm-jump="${M}" role="button" tabindex="0"><span class="cm-quote-name">\u21AA ${p(r.fwd)}: ${p(N.sender.name)}</span><span class="cm-quote-text">${p(a.forwarded.preview)}</span></div>`}else B=`<details class="cm-fwd"><summary class="cm-fwd-sum"><span class="cm-fwd-tag">\u21AA ${p(r.fwd)}${a.forwarded.sender?`: ${p(a.forwarded.sender)}`:""}</span><span class="cm-fwd-prev">${p(a.forwarded.preview)}</span></summary><div class="cm-fwd-body">${a.forwarded.bodyHtml}</div></details>`}let le=n.showAttachments&&a.attachments.length?`<div class="cm-atts">${a.attachments.map(b=>b.kind==="image"&&b.url?`<img class="cm-att-img" src="${p(b.url)}" alt="${p(b.name)}" data-cm-full="${p(b.url)}">`:`<a class="cm-att-chip" href="${b.url?p(b.url):"#"}" target="_blank" rel="noopener">\u{1F4CE} ${p(b.name)}</a>`).join("")}</div>`:"",me=a.timestamp?`<div class="cm-time">${p(a.timestamp)}</div>`:"",de=`<div class="cm-actions"><button type="button" class="cm-act" data-cm-act="reply" data-cm-idx="${u}" title="${r.replyOne}">${y.reply}</button><button type="button" class="cm-act" data-cm-act="forward" data-cm-idx="${u}" title="${r.forwardOne}">${y.forward}</button></div>`,ue=a.bodyHtml.trim()?a.bodyHtml:a.bodyText?a.bodyText.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>"):"";return`${x}<div class="cm-row ${H} grp-${w}" data-cm-row="${u}" style="${ae}">
+  <div class="cm-msg">${ie}<div class="cm-stack">${de}<div class="cm-bubble">${se}${V}<div class="cm-body">${ue}</div>${B}${le}${ce}</div>${me}</div></div>
+</div>`}).join(`
+`),ne=t.length===0?`<div class="cm-empty">${y.chat} ${n.uiLanguage==="en"?"No messages in this thread yet":"Noch keine Nachrichten in diesem Thread"}</div>`:"",S=["cm-chat",`ts-${n.timestamps}`];return o.minimal&&S.push("minimal"),R(o)&&S.push("dark"),R(o)&&n.htmlSafeBg!==!1&&S.push("html-safe"),`<div class="${S.join(" ")}">${ne}${te}</div>`}function he(t,n){let o=v[n.uiLanguage]??v.de,r=document.createElement("div");r.className="cm-lb",r.innerHTML=`<button class="cm-lb-x" title="Schlie\xDFen (Esc)">\u2715</button><img alt=""><div class="cm-lb-cap"></div><a class="cm-lb-open" target="_blank" rel="noopener">${o.openOriginal}</a>`,t.appendChild(r);let e=r.querySelector("img"),s=r.querySelector(".cm-lb-cap"),l=r.querySelector(".cm-lb-open"),m=()=>r.classList.remove("open"),d=(i,c="")=>{e.src=i,l.href=i,s.textContent=c,s.style.display=c?"":"none",r.classList.add("open")};t.addEventListener("click",i=>{let c=i.target;if(c instanceof HTMLImageElement&&!r.contains(c)){let g=c.getAttribute("data-cm-full")??c.getAttribute("src");g&&(i.preventDefault(),i.stopPropagation(),d(g,c.getAttribute("alt")??""));return}(c===r||c.classList.contains("cm-lb-x"))&&m()}),document.addEventListener("keydown",i=>{i.key==="Escape"&&r.classList.contains("open")&&m()})}function ee(t,n){let o=window.open("","_blank","width=780,height=920");if(!o)return;let r=_(n).replace(":host { all: initial; }","");o.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Mail to Chat - Export</title><style>${r} body{margin:0;padding:18px;background:#fff} .cm-actions,.cm-composer,.cm-toolbar{display:none!important} @media print { .cm-bubble{box-shadow:none} }</style></head><body>${P(t,n)}</body></html>`),o.document.close(),o.focus(),setTimeout(()=>o.print(),350)}function fe(t,n,o,r,e){let s=v[r.uiLanguage]??v.de,l=document.createElement("div");l.className="cm-toolbar";let m=document.createElement("button");m.className="cm-tool",m.type="button",m.innerHTML=`${y.print}<span>${s.exportPdf}</span>`,m.addEventListener("click",()=>ee(o,r)),l.appendChild(m),n.prepend(l),t.addEventListener("click",d=>{let i=d.target.closest?.(".cm-quote[data-cm-jump]");if(!i)return;let c=t.querySelector(`.cm-row[data-cm-row="${i.getAttribute("data-cm-jump")}"]`);c&&(c.scrollIntoView?.({behavior:"smooth",block:"center"}),c.classList.add("cm-flash"),setTimeout(()=>c.classList.remove("cm-flash"),1200))}),e.onReplyTo||e.onForward?t.addEventListener("click",d=>{let i=d.target.closest?.(".cm-act");if(!i)return;let c=Number(i.getAttribute("data-cm-idx"));if(Number.isNaN(c))return;let g=t.querySelector(".cm-comp-input"),f=g?.value??"";g&&(g.value=""),i.getAttribute("data-cm-act")==="reply"?e.onReplyTo?.(c,f):e.onForward?.(c,f)}):t.querySelectorAll(".cm-actions").forEach(d=>d.remove())}function xe(t,n){let o=v[n.uiLanguage]??v.de,r=()=>t.querySelector(".cm-contact")?.remove();t.addEventListener("click",e=>{let s=e.target.closest?.(".cm-avatar");if(!s){e.target.closest?.(".cm-contact")||r();return}e.stopPropagation(),r();let l=s.getAttribute("data-cm-name")??"?",m=s.getAttribute("data-cm-email")??"",d=s.getAttribute("data-cm-color")||"#90a4ae",i=document.createElement("div");i.className="cm-contact",i.innerHTML=`
+      <div class="cm-c-head">
+        <div class="cm-c-avatar" style="--cm-c-color:${d}">${q(l).replace(/&/g,"&amp;").replace(/</g,"&lt;")}</div>
+        <div>
+          <div class="cm-c-name"></div>
+          <div class="cm-c-mail"></div>
+        </div>
+      </div>
+      <div class="cm-c-actions"></div>`,i.querySelector(".cm-c-name").textContent=l,i.querySelector(".cm-c-mail").textContent=m||o.noMail;let c=i.querySelector(".cm-c-actions");if(m){let f=document.createElement("button");f.type="button",f.innerHTML=`${y.copy} ${o.copyMail}`,f.addEventListener("click",()=>{navigator.clipboard?.writeText(m).then(()=>{f.textContent=o.copied,setTimeout(r,900)})}),c.appendChild(f);let k=document.createElement("a");k.href=`#search/${encodeURIComponent(`from:${m}`)}`,k.innerHTML=`${y.search} ${o.searchMails}`,k.addEventListener("click",r),c.appendChild(k)}let g=s.getBoundingClientRect();i.style.left=`${Math.min(g.right+10,window.innerWidth-320)}px`,i.style.top=`${Math.min(g.top-8,window.innerHeight-180)}px`,t.appendChild(i)}),document.addEventListener("keydown",e=>{e.key==="Escape"&&r()})}function we(t,n,o){if(!o.onSend)return;let r=v[n.uiLanguage]??v.de,e=document.createElement("div");if(e.className="cm-composer",o.onOpenFullEditor){let i=document.createElement("button");i.className="cm-comp-full",i.type="button",i.title=r.fullEditor,i.textContent="Aa",i.addEventListener("click",()=>{let c=e.querySelector(".cm-comp-input");o.onOpenFullEditor?.(c?.value??""),c&&(c.value="")}),e.appendChild(i)}if(o.onOpenAttach){let i=document.createElement("button");i.className="cm-comp-full cm-comp-attach",i.type="button",i.title=r.attach,i.innerHTML=y.attach,i.addEventListener("click",()=>{let c=e.querySelector(".cm-comp-input");o.onOpenAttach?.(c?.value??""),c&&(c.value="")}),e.appendChild(i)}let s=document.createElement("textarea");s.className="cm-comp-input",s.rows=1,s.placeholder=r.placeholder;let l=document.createElement("button");l.className="cm-comp-send",l.type="button",l.title=r.send,l.innerHTML=y.send,e.append(s,l),t.appendChild(e);let m=()=>{s.style.height="auto",s.style.height=`${Math.min(s.scrollHeight,120)}px`};s.addEventListener("input",m);let d=async()=>{let i=s.value.trim();if(!(!i||e.classList.contains("sending"))){e.classList.add("sending");try{await o.onSend(i)?(s.value="",m()):(e.classList.add("error"),s.title=r.sendFailed,setTimeout(()=>e.classList.remove("error"),2e3))}finally{e.classList.remove("sending")}}};l.addEventListener("click",()=>void d()),s.addEventListener("keydown",i=>{i.key==="Enter"&&!i.shiftKey&&(i.preventDefault(),d())})}function ye(t,n){let o=n.uiLanguage==="en",r=e=>o?`${e} quoted lines`:`${e} Zeilen zitiert`;t.querySelectorAll(".cm-body blockquote").forEach(e=>{let s=e.querySelectorAll("p, div, br, li, h1, h2, h3, h4, h5, h6, tr").length,l=Math.max(1,s||Math.ceil((e.textContent?.length??0)/60)),m=document.createElement("div"),d=document.createElement("button");d.type="button",d.className="cm-bq-btn",d.setAttribute("aria-expanded","false"),d.textContent=`\xB7\xB7\xB7 ${r(l)}`;let i=document.createElement("div");i.className="cm-bq-content",e.parentNode?.insertBefore(m,e),i.appendChild(e),m.appendChild(d),m.appendChild(i),d.addEventListener("click",()=>{i.classList.contains("cm-bq-open")?(i.classList.remove("cm-bq-open"),d.setAttribute("aria-expanded","false"),d.textContent=`\xB7\xB7\xB7 ${r(l)}`):(i.classList.add("cm-bq-open"),d.setAttribute("aria-expanded","true"),d.textContent=`\u25B2 ${r(l)}`)})})}function G(t,n,o={}){let r=document.createElement("div");r.className="chatmail-host";let e=r.attachShadow({mode:"open"}),s=document.createElement("style");s.textContent=_(n),e.appendChild(s);let l=document.createElement("div");l.innerHTML=P(t,n);let m=l.firstElementChild??l;return e.appendChild(m),fe(e,m,t,n,o),we(m,n,o),xe(e,n),he(e,n),ye(e,n),r}var ve="Anna Berg<br>Projektkoordination Sommerfest<br>Stadtwerk Kultur gGmbH<br>Tel: 089 123 456 78<br>anna.berg@stadtwerk-kultur.example<br>www.stadtwerk-kultur.example",ke=[{sender:{name:"Anna Berg",email:"anna.berg@stadtwerk-kultur.example"},timestamp:"Gestern, 09:14",isOwn:!1,attachments:[],bodyText:"Hallo! Hast du das Briefing f\xFCr das Sommerfest schon gesehen? Ich w\xFCrde gern n\xE4chste Woche starten.",bodyHtml:"Hallo! Hast du das Briefing f\xFCr das Sommerfest schon gesehen? Ich w\xFCrde gern n\xE4chste Woche starten."},{sender:{name:"Du"},timestamp:"Gestern, 09:30",isOwn:!0,attachments:[],bodyText:"Hi Anna, ja \u2014 sieht super aus. Wann passt dir ein kurzer Call?",bodyHtml:"Hi Anna, ja \u2014 sieht super aus. Wann passt dir ein kurzer Call?",replyTo:{name:"Anna Berg",preview:"Hallo! Hast du das Briefing f\xFCr das Sommerfest"}},{sender:{name:"Anna Berg"},timestamp:"Gestern, 09:42",isOwn:!1,attachments:[],bodyText:"Donnerstag 14 Uhr? Ich leite dir das Angebot der Location weiter.",bodyHtml:"Donnerstag 14 Uhr? Ich leite dir das Angebot der Location weiter."},{sender:{name:"Anna Berg"},timestamp:"Heute, 08:05",isOwn:!1,attachments:[],bodyText:"Hier die Weiterleitung:",bodyHtml:"Hier die Weiterleitung:",forwarded:{sender:"Eventlocation M\xFCnchen",subject:"Angebot Sommerfest 2026",preview:"Angebot Sommerfest 2026 \u2014 Gerne unterbreiten wir Ihnen unser Angebot f\xFCr Ihre Veranstaltung.",bodyHtml:"Sehr geehrte Frau Berg,<br><br>gerne unterbreiten wir Ihnen unser Angebot f\xFCr Ihre Veranstaltung am 12. Juli. Die R\xE4umlichkeiten sind an dem Termin verf\xFCgbar.<br><br>Mit freundlichen Gr\xFC\xDFen<br>Eventlocation M\xFCnchen"}},{sender:{name:"Du"},timestamp:"Heute, 08:20",isOwn:!0,attachments:[],bodyText:"Perfekt, Donnerstag 14 Uhr passt. Danke dir!",bodyHtml:"Perfekt, Donnerstag 14 Uhr passt. Danke dir!",signatureHtml:ve}];function U(t){let n={...D,themeId:t,chatThemeSeparate:!0},o=G(ke,n),r=document.getElementById("cm-slot");if(r){for(;r.firstChild;)r.removeChild(r.firstChild);o.style.height="100%",r.appendChild(o)}}var Ee=["whatsapp","imessage","telegram","bumblebee","discord","signal"],$=document.getElementById("cm-themes");if($){for(let t of T.filter(n=>Ee.includes(n.id))){let n=document.createElement("button");n.textContent=t.label,n.dataset.id=t.id,n.addEventListener("click",()=>{U(t.id);for(let o of Array.from($.children))o.classList.toggle("on",o.dataset.id===t.id)}),$.appendChild(n)}$.firstElementChild?.classList.add("on")}window.cmRender=U;U("whatsapp");})();
+</script>
+</body>
+</html>
