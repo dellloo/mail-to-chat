@@ -285,12 +285,21 @@ export function buildCss(settings: ChatSettings): string {
 .cm-fwd-body { margin-top: 7px; padding-top: 7px; border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent); opacity: 0.9; animation: cmIn 0.18s ease both; }
 .cm-atts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .cm-att-chip {
-  display: inline-flex; align-items: center; gap: 5px;
-  background: rgba(0,0,0,0.07); border-radius: 999px;
-  padding: 4px 12px; font-size: 0.8em; text-decoration: none; color: inherit;
-  transition: background 0.15s, transform 0.15s;
+  display: inline-flex; align-items: center; gap: 8px; max-width: 260px;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 13%, transparent);
+  border-radius: 11px; padding: 7px 13px;
+  font-size: 0.8em; font-weight: 500; letter-spacing: 0.01em;
+  text-decoration: none; color: inherit;
+  transition: background 0.15s, transform 0.15s, border-color 0.15s;
 }
-.cm-att-chip:hover { background: rgba(0,0,0,0.13); transform: translateY(-1px); }
+.cm-att-chip::before {
+  content: ''; flex: 0 0 auto; width: 15px; height: 16px; background: currentColor; opacity: 0.7;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.cm-att-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-att-chip:hover { background: color-mix(in srgb, currentColor 13%, transparent); transform: translateY(-1px); border-color: color-mix(in srgb, currentColor 22%, transparent); }
 .cm-att-img {
   max-width: 200px; max-height: 150px; border-radius: 10px; display: block;
   object-fit: cover; cursor: zoom-in;
@@ -590,7 +599,7 @@ export function renderMessages(messages: MessageObject[], settings: ChatSettings
               .map((a) =>
                 a.kind === 'image' && a.url
                   ? `<img class="cm-att-img" src="${esc(a.url)}" alt="${esc(a.name)}" data-cm-full="${esc(a.url)}">`
-                  : `<a class="cm-att-chip" href="${a.url ? esc(a.url) : '#'}" target="_blank" rel="noopener">📎 ${esc(a.name)}</a>`,
+                  : `<a class="cm-att-chip" href="${a.url ? esc(a.url) : '#'}" target="_blank" rel="noopener"><span class="cm-att-name">${esc(a.name)}</span></a>`,
               )
               .join('')}</div>`
           : '';
