@@ -8,7 +8,7 @@ const GROUP_COLORS = ['#e57373', '#64b5f6', '#81c784', '#ffb74d', '#ba68c8', '#4
 
 const I18N = {
   de: {
-    showSig: 'Signatur anzeigen', attachment: 'Anhang', image: 'Bild', openOriginal: 'Original öffnen ↗',
+    showSig: 'Signatur anzeigen', hideSig: 'Signatur ausblenden', attachment: 'Anhang', image: 'Bild', openOriginal: 'Original öffnen ↗',
     placeholder: 'Nachricht', send: 'Senden (Enter)', fullEditor: 'Voller Gmail-Editor: Formatierung, Anhänge, CC/BCC',
     sendFailed: 'Senden fehlgeschlagen - bitte im klassischen Editor versuchen',
     exportPdf: 'Als PDF exportieren',
@@ -19,7 +19,7 @@ const I18N = {
     fwd: 'Weitergeleitet',
   },
   en: {
-    showSig: 'Show signature', attachment: 'Attachment', image: 'Image', openOriginal: 'Open original ↗',
+    showSig: 'Show signature', hideSig: 'Hide signature', attachment: 'Attachment', image: 'Image', openOriginal: 'Open original ↗',
     placeholder: 'Message', send: 'Send (Enter)', fullEditor: 'Full Gmail editor: formatting, attachments, CC/BCC',
     sendFailed: 'Send failed - please use the classic editor',
     exportPdf: 'Export as PDF',
@@ -264,12 +264,27 @@ export function buildCss(settings: ChatSettings): string {
 .cm-body a { color: inherit; text-decoration: underline; }
 .cm-body p, .cm-body div { margin: 0 0 0.4em 0; }
 .cm-body > *:last-child { margin-bottom: 0; }
+/* Signatur: oben UND unten ein-/ausklappbar, sanft animiert (grid-rows 0fr→1fr). */
 .cm-sig { margin-top: 6px; font-size: 0.85em; }
-.cm-sig summary { cursor: pointer; color: var(--cm-meta); list-style: none; user-select: none; transition: opacity 0.15s; }
-.cm-sig summary:hover { opacity: 0.7; }
-.cm-sig summary::before { content: '▸ '; }
-.cm-sig[open] summary::before { content: '▾ '; }
-.cm-sig-body { margin-top: 4px; opacity: 0.75; animation: cmIn 0.18s ease both; }
+.cm-sig-toggle, .cm-sig-collapse {
+  all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  color: var(--cm-meta); user-select: none; transition: opacity 0.15s, background 0.15s;
+}
+.cm-sig-toggle { padding: 2px 0; }
+.cm-sig-toggle:hover { opacity: 0.7; }
+.cm-chev { width: 0; height: 0; border-left: 5px solid currentColor; border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent; transition: transform 0.25s ease; }
+.cm-sig.open .cm-chev { transform: rotate(90deg); }
+.cm-sig-thide { display: none; }
+.cm-sig.open .cm-sig-tshow { display: none; }
+.cm-sig.open .cm-sig-thide { display: inline; }
+.cm-sig-body { display: grid; grid-template-rows: 0fr; opacity: 0;
+  transition: grid-template-rows 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.22s ease; }
+.cm-sig.open .cm-sig-body { grid-template-rows: 1fr; opacity: 0.78; }
+.cm-sig-inner { min-height: 0; overflow: hidden; }
+.cm-sig-collapse { margin-top: 9px; padding: 4px 11px; border-radius: 8px; font-size: 0.95em;
+  background: color-mix(in srgb, currentColor 8%, transparent); }
+.cm-sig-collapse:hover { background: color-mix(in srgb, currentColor 15%, transparent); }
 /* Weitergeleitete Nachricht: eingeklappter Block mit Vorschau (Absender + Betreff + 1. Satz) */
 .cm-fwd {
   margin-top: 8px; border-left: 3px solid color-mix(in srgb, currentColor 35%, transparent);
@@ -575,7 +590,7 @@ export function renderMessages(messages: MessageObject[], settings: ChatSettings
         }
       }
       const sig = m.signatureHtml
-        ? `<details class="cm-sig"><summary>${i18n.showSig}</summary><div class="cm-sig-body">${m.signatureHtml}</div></details>`
+        ? `<div class="cm-sig"><button class="cm-sig-toggle" type="button" aria-expanded="false"><span class="cm-chev"></span><span class="cm-sig-tshow">${i18n.showSig}</span><span class="cm-sig-thide">${i18n.hideSig}</span></button><div class="cm-sig-body"><div class="cm-sig-inner">${m.signatureHtml}<button class="cm-sig-collapse" type="button">▴ ${i18n.hideSig}</button></div></div></div>`
         : '';
       // Weiterleitung: wenn der weitergeleitete Inhalt SCHON als eigenes Bubble im Thread steht
       // (z. B. die Original-Mail), nur ein klickbarer Verweis-Chip darauf (redundanten Block
@@ -714,6 +729,16 @@ function wireToolbar(
     row.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
     row.classList.add('cm-flash');
     setTimeout(() => row.classList.remove('cm-flash'), 1200);
+  });
+
+  // Signatur ein-/ausklappen (Toggle oben ODER Einklapp-Button unten).
+  shadow.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest?.('.cm-sig-toggle, .cm-sig-collapse') as HTMLElement | null;
+    if (!btn) return;
+    const sig = btn.closest('.cm-sig');
+    if (!sig) return;
+    const open = sig.classList.toggle('open');
+    sig.querySelector('.cm-sig-toggle')?.setAttribute('aria-expanded', String(open));
   });
 
   // Pro-Nachricht-Aktionen verdrahten (oder entfernen, wenn keine Handler da sind)

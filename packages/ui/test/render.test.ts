@@ -39,10 +39,13 @@ describe('UI-Renderer', () => {
     expect(own).not.toContain('cm-avatar');
   });
 
-  it('klappt Signaturen ein (details/summary)', () => {
+  it('klappt Signaturen ein — Toggle oben UND Einklappen unten', () => {
     const html = renderMessages([msg({ signatureHtml: 'Max M<br>ACME GmbH' })], DEFAULT_SETTINGS);
-    expect(html).toContain('<details class="cm-sig">');
+    expect(html).toContain('class="cm-sig"');
+    expect(html).toContain('cm-sig-toggle'); // Bedienelement oben
+    expect(html).toContain('cm-sig-collapse'); // Einklappen unten
     expect(html).toContain('Signatur anzeigen');
+    expect(html).toContain('Signatur ausblenden');
   });
 
   it('rendert Bild-Anhänge als Thumbnails und Dateien als Chips', () => {
