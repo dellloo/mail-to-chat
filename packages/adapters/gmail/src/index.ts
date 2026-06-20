@@ -481,6 +481,48 @@ export function mergeThreadMessages(
   return [...head, ...domMsgs];
 }
 
+/**
+ * Schneidet markerlose Zitat-Historie ab: Wenn der Body einer Bubble (ab Position >30) den
+ * Anfang einer FRÜHEREN Bubble wörtlich enthält, ist das zitierter Verlauf ohne "Am … schrieb"-
+ * Marker (manche Clients zitieren ohne Trenner) → ab dort abschneiden. Inhalts-Match gegen die
+ * echten vorherigen Nachrichten (Vergleich nur auf Buchstaben/Ziffern, robust gegen Whitespace).
+ */
+export function stripCrossQuotes(messages: MessageObject[]): MessageObject[] {
+  const norm = (s: string): string => s.toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
+  const esc = (s: string): string =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const isAlnum = (c: string): boolean => /[a-z0-9äöüß]/i.test(c);
+  return messages.map((m, i) => {
+    if (!m.bodyText) return m;
+    const bn = norm(m.bodyText);
+    let cutNorm = -1;
+    for (let j = 0; j < i; j++) {
+      const prev = messages[j];
+      if (!prev) continue;
+      const key = norm(prev.bodyText).slice(0, 40);
+      if (key.length < 24) continue; // zu kurz → Fehlalarm-Risiko
+      const pos = bn.indexOf(key);
+      if (pos > 30 && (cutNorm < 0 || pos < cutNorm)) cutNorm = pos;
+    }
+    if (cutNorm < 0) return m;
+    // normalisierte Position zurück auf den Originaltext mappen
+    let count = 0;
+    let rawCut = m.bodyText.length;
+    for (let k = 0; k < m.bodyText.length; k++) {
+      if (isAlnum(m.bodyText.charAt(k))) {
+        if (count === cutNorm) {
+          rawCut = k;
+          break;
+        }
+        count++;
+      }
+    }
+    const newText = m.bodyText.slice(0, rawCut).replace(/\s+$/, '');
+    if (!newText.trim()) return m;
+    return { ...m, bodyText: newText, bodyHtml: esc(newText).replace(/\n/g, '<br>') };
+  });
+}
+
 function buildThreadMessages(settings: ChatSettings): MessageObject[] {
   const account = detectAccount();
   const ownEmails = [...settings.ownEmails];
@@ -528,8 +570,9 @@ function buildThreadMessages(settings: ChatSettings): MessageObject[] {
     messages = quoteMsgs;
   }
 
-  // Cache-Anhänge wieder anheften (eingeklappte Mails) + redundanten Reply-Kontext bereinigen.
-  return pruneRedundantReplyTo(applyCachedAttachments(messages, loadAttCache()));
+  // Cache-Anhänge wieder anheften + redundanten Reply-Kontext bereinigen + markerlose
+  // Zitat-Historie (Inhalts-Match gegen vorherige Bubbles) aus den Bodies schneiden.
+  return stripCrossQuotes(pruneRedundantReplyTo(applyCachedAttachments(messages, loadAttCache())));
 }
 
 /** Hat dieser Knoten einen auswertbaren Mail-Body (div.a3s ODER Notification-Fallback div.ii.gt)? */

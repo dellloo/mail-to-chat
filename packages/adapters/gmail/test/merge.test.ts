@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { MessageObject } from '@chatmail/core';
-import { applyCachedAttachments, attachmentCacheKey, mergeThreadMessages, pruneRedundantReplyTo } from '../src/index';
+import {
+  applyCachedAttachments,
+  attachmentCacheKey,
+  mergeThreadMessages,
+  pruneRedundantReplyTo,
+  stripCrossQuotes,
+} from '../src/index';
 
 const m = (body: string): MessageObject => ({
   sender: { name: 'X' },
@@ -8,6 +14,23 @@ const m = (body: string): MessageObject => ({
   bodyText: body,
   attachments: [],
   isOwn: false,
+});
+
+describe('stripCrossQuotes (markerlose Zitate inhaltsbasiert abschneiden)', () => {
+  it('schneidet den zitierten Text einer früheren Bubble aus dem Body', () => {
+    const prev = m('Hallo Lorenzo, freut mich dass bei dir alles gut ist. Wie laeuft mit Rayan?');
+    const reply = m(
+      'Ich war heute da, er macht es gut. Danke fuer den Link. Hallo Lorenzo, freut mich dass bei dir alles gut ist. Wie laeuft mit Rayan?',
+    );
+    const out = stripCrossQuotes([prev, reply]);
+    expect(out[1]!.bodyText).toContain('Ich war heute da');
+    expect(out[1]!.bodyText).not.toContain('freut mich dass bei dir');
+  });
+  it('lässt eine Nachricht ohne zitierten Vorgänger unangetastet', () => {
+    const a = m('Erste Nachricht hier, komplett eigenständig formuliert.');
+    const b = m('Zweite ganz andere Nachricht ohne jeden Bezug dazu.');
+    expect(stripCrossQuotes([a, b])[1]!.bodyText).toBe('Zweite ganz andere Nachricht ohne jeden Bezug dazu.');
+  });
 });
 
 describe('mergeThreadMessages (Verlauf darf nie verschwinden)', () => {

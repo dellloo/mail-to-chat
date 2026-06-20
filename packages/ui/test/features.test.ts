@@ -104,7 +104,7 @@ describe('Antwort-Kontext (WhatsApp-Style Quote-Chip)', () => {
   it('Klick auf den Chip springt zur Originalnachricht (Flash)', () => {
     const view = createChatView(
       [
-        msg({ bodyHtml: 'Originalfrage hier', bodyText: 'Originalfrage hier' }),
+        msg({ sender: { name: 'Anna' }, bodyHtml: 'Originalfrage hier', bodyText: 'Originalfrage hier' }),
         msg({ bodyHtml: 'x', bodyText: 'x', isOwn: true }),
         msg({
           bodyHtml: 'Antwort darauf',
@@ -122,6 +122,24 @@ describe('Antwort-Kontext (WhatsApp-Style Quote-Chip)', () => {
     const target = shadow.querySelector('.cm-row[data-cm-row="0"]');
     expect(target?.classList.contains('cm-flash')).toBe(true);
     view.remove();
+  });
+
+  it('Selbst-Referenz wird unterdrückt (kein Chip auf eigene frühere Nachricht)', () => {
+    const html = renderMessages(
+      [
+        msg({ sender: { name: 'Marjan' }, bodyHtml: 'Hallo, ich war abwesend', bodyText: 'Hallo, ich war abwesend' }),
+        msg({ sender: { name: 'Lorenzo' }, bodyHtml: 'alles ok?', bodyText: 'alles ok?', isOwn: true }),
+        msg({
+          sender: { name: 'Marjan' },
+          bodyHtml: 'Danke geht besser',
+          bodyText: 'Danke geht besser',
+          replyTo: { name: 'X', preview: 'Hallo, ich war abwesend' },
+        }),
+      ],
+      DEFAULT_SETTINGS,
+    );
+    // Matchträfe die eigene frühere Marjan-Nachricht → Chip wird unterdrückt.
+    expect(html).not.toContain('cm-quote');
   });
 
   it('ohne auffindbares Original: KEIN Chip (verhindert "Unbekannt"-Müll)', () => {

@@ -45,6 +45,27 @@ describe('Signatur: lange Firmen-Signatur vollständig einklappen', () => {
     expect(body).toContain('Liebe Grüße');
     expect(signature).toBeUndefined();
   });
+
+  it('generisch: englische Signatur (Best regards + Firma) wird eingeklappt', () => {
+    const text = [
+      'Hi Tom,',
+      'sounds good, talk soon.',
+      'Best regards',
+      'Jane Doe',
+      'Acme Inc.',
+      'Phone: +1 555 0100',
+      'jane@acme.com',
+    ].join('\n');
+    const { body, signature } = splitSignature(text);
+    expect(body).toContain('talk soon');
+    expect(body).not.toContain('Best regards');
+    expect(signature).toContain('jane@acme.com');
+  });
+
+  it('generisch: englisches Reply-Zitat "On … wrote:" wird abgeschnitten', () => {
+    const t = 'Thanks!\n\nOn Mon, Jun 1, 2026 at 9:14 AM Jane Doe <jane@x.com> wrote:\n\n> old text';
+    expect(stripReplyQuote(t)).toBe('Thanks!');
+  });
 });
 
 describe('detectForward', () => {

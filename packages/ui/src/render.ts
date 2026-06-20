@@ -555,8 +555,15 @@ export function renderMessages(messages: MessageObject[], settings: ChatSettings
       const replyHit = m.replyTo ? matchRef(m.replyTo.preview, idx) : -1;
       if (replyHit >= 0) {
         const tgt = messages[replyHit] as MessageObject;
-        const prev = tgt.bodyText.replace(/\s+/g, ' ').trim().slice(0, 70);
-        quoteChip = `<div class="cm-quote" data-cm-jump="${replyHit}" role="button" tabindex="0"><span class="cm-quote-name">${esc(tgt.sender.name)}</span><span class="cm-quote-text">${esc(prev)}</span></div>`;
+        // Selbst-Referenz unterdrücken: man antwortet nicht auf die eigene Nachricht. Trifft das
+        // Match denselben Absender, ist es ein Fehl-Match (das zitierte Original ist eine ältere
+        // Mail derselben Person) → keinen Chip zeigen, statt einen falschen.
+        const sameSender =
+          tgt.sender.name === m.sender.name && (tgt.sender.email ?? '') === (m.sender.email ?? '');
+        if (!sameSender) {
+          const prev = tgt.bodyText.replace(/\s+/g, ' ').trim().slice(0, 70);
+          quoteChip = `<div class="cm-quote" data-cm-jump="${replyHit}" role="button" tabindex="0"><span class="cm-quote-name">${esc(tgt.sender.name)}</span><span class="cm-quote-text">${esc(prev)}</span></div>`;
+        }
       }
       const sig = m.signatureHtml
         ? `<details class="cm-sig"><summary>${i18n.showSig}</summary><div class="cm-sig-body">${m.signatureHtml}</div></details>`
