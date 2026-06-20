@@ -5,11 +5,13 @@
  * Nutzung: npm run build:demo-video
  */
 import { build } from 'esbuild';
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// Echtes Logo (statt Emoji) als Data-URL einbetten — self-contained.
+const LOGO = 'data:image/png;base64,' + readFileSync(resolve(root, 'apps/chrome-ext/icons/icon128.png')).toString('base64');
 
 const res = await build({
   entryPoints: [resolve(root, 'apps/chrome-ext/src/demo-video.ts')],
@@ -31,7 +33,8 @@ const html = `<!doctype html>
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #eceef2;
     background: radial-gradient(1300px 700px at 50% -15%, #2b2f6b 0%, #14152b 48%, #0a0b16 100%); overflow: hidden; }
   .brand { text-align: center; }
-  .brand h1 { margin: 0; font-size: 24px; letter-spacing: -0.4px; }
+  .brand h1 { margin: 0; font-size: 24px; letter-spacing: -0.4px; display: inline-flex; align-items: center; gap: 11px; }
+  .logo { width: 34px; height: 34px; border-radius: 9px; }
   .brand p { margin: 3px 0 0; opacity: 0.62; font-size: 13px; }
 
   .topbar { width: min(920px, 96vw); display: flex; align-items: center; gap: 14px;
@@ -72,10 +75,11 @@ const html = `<!doctype html>
   #classic .cb { color: #5f6368; font-size: 13px; line-height: 1.5; margin-top: 4px; }
   #classic .q { color: #80868b; border-left: 2px solid #dadce0; padding-left: 10px; margin-top: 6px; font-size: 12px; }
 
-  #theme-label { position: fixed; top: 22px; left: 50%; transform: translateX(-50%) translateY(-12px);
-    background: rgba(0,0,0,0.74); color: #fff; padding: 8px 18px; border-radius: 99px; font-size: 14px; font-weight: 600;
-    opacity: 0; transition: opacity 0.3s, transform 0.3s; pointer-events: none; z-index: 50; }
-  #theme-label.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #theme-label { position: fixed; top: 28px; left: 50%; transform: translateX(-50%) translateY(-16px) scale(0.96);
+    background: rgba(10,12,24,0.9); color: #fff; padding: 13px 32px; border-radius: 99px; font-size: 22px; font-weight: 700;
+    letter-spacing: -0.2px; box-shadow: 0 10px 34px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);
+    opacity: 0; transition: opacity 0.32s ease, transform 0.32s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; z-index: 50; }
+  #theme-label.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
 
   #settings { position: absolute; top: 0; right: 0; width: 268px; height: 100%; background: #20232b;
     border-left: 1px solid rgba(255,255,255,0.08); transform: translateX(100%);
@@ -98,7 +102,7 @@ const html = `<!doctype html>
 </style>
 </head>
 <body>
-  <div class="brand"><h1>💬 Mail to Chat</h1><p>Aus dem E-Mail-Chaos wird ein klarer Chat.</p></div>
+  <div class="brand"><h1><img class="logo" src="${LOGO}" alt="Mail to Chat Logo">Mail to Chat</h1><p>Aus dem E-Mail-Chaos wird ein klarer Chat.</p></div>
 
   <div class="topbar">
     <span class="tb-label">Gmail</span>

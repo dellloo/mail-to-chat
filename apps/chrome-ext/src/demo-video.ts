@@ -36,7 +36,8 @@ const CONVOS: MessageObject[][] = [
         preview: 'Angebot Sommerfest 2026 — Gerne unterbreiten wir Ihnen unser Angebot für Ihre Veranstaltung.',
         bodyHtml: 'Sehr geehrte Frau Berg,<br><br>gerne unterbreiten wir Ihnen unser Angebot für Ihre Veranstaltung am 12. Juli. Die Räumlichkeiten sind verfügbar.<br><br>Mit freundlichen Grüßen<br>Eventlocation München' } },
     { sender: { name: 'Du' }, timestamp: 'Heute, 08:20', isOwn: true, attachments: [],
-      bodyText: 'Perfekt, Donnerstag 14 Uhr passt. Danke dir!', bodyHtml: 'Perfekt, Donnerstag 14 Uhr passt. Danke dir!', signatureHtml: SIG },
+      bodyText: 'Perfekt, Donnerstag 14 Uhr passt. Danke dir!', bodyHtml: 'Perfekt, Donnerstag 14 Uhr passt. Danke dir!',
+      replyTo: { name: 'Anna Berg', preview: 'Hallo! Hast du das Briefing für das Sommerfest' }, signatureHtml: SIG },
   ],
   // 1 — kurz, Dev-Thread mit Reply
   [
@@ -157,56 +158,56 @@ async function play(): Promise<void> {
     h = renderChat(0, false, h);
     $('classic').style.opacity = '0';
     $('cm-slot').style.opacity = '1';
-    label('💬 Chat-Ansicht');
-    await wait(1300);
+    label('Chat-Ansicht');
+    await wait(1500);
 
-    // 2) Durch die Mails scrollen
+    // 2) Durch den Verlauf nach unten scrollen
     label('Durch den Verlauf scrollen');
     await scrollChat(h, 99999);
-    await wait(700);
+    await wait(900);
 
-    // 3) Klick auf Antwort-Referenz → springt hoch + Flash
+    // 3) Unten: Antwort-Referenz → Klick → satisfying Flick hoch zur Original-Nachricht
     const chip = h?.shadowRoot?.querySelector('.cm-quote[data-cm-jump]') as HTMLElement | null;
     if (chip) {
       await moveCursor(chip);
-      label('↪ Sprung zur Original-Nachricht');
+      label('Antwort-Referenz — Klick springt zum Original');
       chip.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
-      await wait(2000);
+      await wait(2200);
     }
+    await scrollChat(h, 0); // vor Mail-Wechsel sauber nach oben (kein Crossfade-Versatz)
+    await wait(500);
 
-    // 4) Weiterleitung & Signatur aufklappen
-    const fwd = h?.shadowRoot?.querySelector('details.cm-fwd') as HTMLDetailsElement | null;
-    if (fwd) { await moveCursor(fwd.querySelector('summary')); label('📨 Weiterleitung aufklappen'); fwd.open = true; await wait(1600); }
-    const sig = h?.shadowRoot?.querySelector('details.cm-sig') as HTMLDetailsElement | null;
-    if (sig) { await moveCursor(sig.querySelector('summary')); label('✍️ Signatur ein-/ausklappen'); sig.open = true; await wait(1500); }
-
-    // 5) In der linken Liste andere Mails öffnen
+    // 4) Andere Mails in der linken Liste öffnen
     await moveCursor(list.children[1] as Element);
     selectRow(1);
     h = renderChat(1, true, h);
-    label('📬 Andere Mail öffnen');
-    await wait(1600);
+    label('Andere Mail öffnen');
+    await wait(1700);
 
     await moveCursor(list.children[2] as Element);
     selectRow(2);
     h = renderChat(2, true, h);
-    label('🖼️ Bild-Anhänge inline');
-    await wait(1700);
+    label('Mail mit Bild-Anhang');
+    await wait(1800);
 
-    // 6) Einstellungen → Themes durchwechseln
+    // 5) Designs durchwechseln — auf der reichen Konversation, von OBEN (kein Scroll-Sprung mehr)
+    h = renderChat(0, true, h);
+    selectRow(0);
     await moveCursor($('gear'));
-    label('⚙️ Einstellungen & Themes');
     $('settings').classList.add('open');
-    await wait(1000);
-    for (const id of ['imessage', 'discord', 'bumblebee']) {
+    label('Design wechseln');
+    await wait(1300);
+    for (const id of ['imessage', 'telegram', 'discord', 'signal', 'bumblebee']) {
+      const t = THEMES.find((x) => x.id === id);
       await moveCursor(swEls[id] ?? null);
       themeId = id;
-      h = renderChat(2, true, h);
-      await wait(1300);
+      h = renderChat(0, true, h);
+      label(t?.label ?? id);
+      await wait(1500);
     }
     $('settings').classList.remove('open');
     themeId = 'whatsapp';
-    await wait(900);
+    await wait(1000);
   }
 }
 
