@@ -79,23 +79,24 @@ describe('Kontaktkarte (Avatar-Klick)', () => {
 });
 
 describe('Antwort-Kontext (WhatsApp-Style Quote-Chip)', () => {
-  it('rendert Name, Vorschau und Zeit im Chip', () => {
+  it('Chip zeigt den ECHTEN Absender des Original-Bubbles + Vorschau + Sprung', () => {
     const html = renderMessages(
       [
-        msg({ bodyHtml: 'Erste Frage zum Budget?', bodyText: 'Erste Frage zum Budget?' }),
+        msg({ sender: { name: 'Max M' }, bodyHtml: 'Erste Frage zum Budget?', bodyText: 'Erste Frage zum Budget?' }),
         msg({ bodyHtml: 'Zwischenstand', bodyText: 'Zwischenstand', isOwn: true }),
         msg({
           bodyHtml: 'Dazu: ja!',
           bodyText: 'Dazu: ja!',
-          replyTo: { name: 'Max M', preview: 'Erste Frage zum Budget?', timestamp: '09:14' },
+          // Absender im Chip kommt aus dem GETROFFENEN Bubble, NICHT aus replyTo.name:
+          replyTo: { name: 'ignoriert', preview: 'Erste Frage zum Budget?' },
         }),
       ],
       DEFAULT_SETTINGS,
     );
     expect(html).toContain('cm-quote');
-    expect(html).toContain('Max M');
+    expect(html).toContain('Max M'); // echter Absender des Originals
     expect(html).toContain('Erste Frage zum Budget?');
-    expect(html).toContain('09:14');
+    expect(html).not.toContain('ignoriert'); // geratener replyTo-Name wird NICHT verwendet
     // Original gefunden -> klickbarer Sprung auf Index 0
     expect(html).toContain('data-cm-jump="0"');
   });
@@ -123,13 +124,13 @@ describe('Antwort-Kontext (WhatsApp-Style Quote-Chip)', () => {
     view.remove();
   });
 
-  it('ohne auffindbares Original: Chip ohne Sprung-Attribut, kein Crash', () => {
+  it('ohne auffindbares Original: KEIN Chip (verhindert "Unbekannt"-Müll)', () => {
     const html = renderMessages(
       [msg({ replyTo: { name: 'X', preview: 'nirgends vorhandener text' } })],
       DEFAULT_SETTINGS,
     );
-    expect(html).toContain('cm-quote');
-    expect(html).not.toContain('data-cm-jump');
+    // Neue Logik: Referenz nur als Chip, wenn sie ein echtes vorheriges Bubble trifft.
+    expect(html).not.toContain('cm-quote');
   });
 });
 

@@ -510,6 +510,19 @@ export function renderMessages(messages: MessageObject[], settings: ChatSettings
     return 'solo';
   };
 
+  // Referenz-Matcher: findet das Bubble im Thread, auf das sich ein Zitat/Forward bezieht.
+  // Treffer → wir zeigen einen klickbaren Chip (echter Absender + Sprung) statt geratenem Text;
+  // kein Treffer → die Referenz ist extern (separater eingeklappter Block).
+  // Nur Buchstaben/Ziffern vergleichen: Zitat-Vorschau und Bubble-Text stammen aus zwei
+  // verschiedenen Parse-Durchläufen und unterscheiden sich oft in Leerzeichen/Satzzeichen
+  // (z. B. "Hallo Lorenzo, Ich" vs. "Hallo Lorenzo,Ich"). Sonst scheitern echte Treffer.
+  const normRef = (s: string): string => s.toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
+  const matchRef = (refText: string, before: number): number => {
+    const key = normRef(refText).slice(0, 40);
+    if (key.length < 12) return -1;
+    return messages.findIndex((mm, j) => j < before && normRef(mm.bodyText).includes(key));
+  };
+
   const rows = messages
     .map((m, idx) => {
       const daySep = seps[idx] ?? '';
@@ -535,27 +548,35 @@ export function renderMessages(messages: MessageObject[], settings: ChatSettings
         !m.isOwn && isGroup && (pos === 'start' || pos === 'solo')
           ? `<div class="cm-sender">${esc(m.sender.name)}</div>`
           : '';
-      // Antwort-Kontext (WhatsApp-Style): klickbar, wenn das Original im Thread auffindbar ist
+      // Antwort-Referenz: NUR anzeigen, wenn sie ein echtes vorheriges Bubble trifft.
+      // Dann Chip mit dem ECHTEN Absender dieses Bubbles (kein geratenes "Unbekannt") + Sprung.
+      // Kein Treffer → kein Chip (der zitierte Verlauf steht ja sowieso als Bubble darüber).
       let quoteChip = '';
-      if (m.replyTo) {
-        const previewKey = m.replyTo.preview.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 60);
-        const targetIdx = previewKey
-          ? messages.findIndex(
-              (mm, j) =>
-                j < idx && mm.bodyText.replace(/\s+/g, ' ').trim().toLowerCase().startsWith(previewKey),
-            )
-          : -1;
-        const jumpAttr = targetIdx >= 0 ? ` data-cm-jump="${targetIdx}" role="button" tabindex="0"` : '';
-        quoteChip = `<div class="cm-quote"${jumpAttr}><span class="cm-quote-name">${esc(m.replyTo.name)}</span><span class="cm-quote-text">${esc(m.replyTo.preview)}</span>${m.replyTo.timestamp ? `<span class="cm-quote-time">${esc(m.replyTo.timestamp)}</span>` : ''}</div>`;
+      const replyHit = m.replyTo ? matchRef(m.replyTo.preview, idx) : -1;
+      if (replyHit >= 0) {
+        const tgt = messages[replyHit] as MessageObject;
+        const prev = tgt.bodyText.replace(/\s+/g, ' ').trim().slice(0, 70);
+        quoteChip = `<div class="cm-quote" data-cm-jump="${replyHit}" role="button" tabindex="0"><span class="cm-quote-name">${esc(tgt.sender.name)}</span><span class="cm-quote-text">${esc(prev)}</span></div>`;
       }
       const sig = m.signatureHtml
         ? `<details class="cm-sig"><summary>${i18n.showSig}</summary><div class="cm-sig-body">${m.signatureHtml}</div></details>`
         : '';
-      // Weitergeleitete Nachricht: eingeklappter Block mit sichtbarer Vorschau (Absender + Betreff +
-      // erster Satz), aufklappbar. Natives <details> → kein extra JS-Wiring nötig.
-      const fwd = m.forwarded
-        ? `<details class="cm-fwd"><summary class="cm-fwd-sum"><span class="cm-fwd-tag">↪ ${esc(i18n.fwd)}${m.forwarded.sender ? `: ${esc(m.forwarded.sender)}` : ''}</span><span class="cm-fwd-prev">${esc(m.forwarded.preview)}</span></summary><div class="cm-fwd-body">${m.forwarded.bodyHtml}</div></details>`
-        : '';
+      // Weiterleitung: wenn der weitergeleitete Inhalt SCHON als eigenes Bubble im Thread steht
+      // (z. B. die Original-Mail), nur ein klickbarer Verweis-Chip darauf (redundanten Block
+      // vermeiden). Sonst (externe Mail) → eingeklappter Block mit Vorschau (Absender+Betreff+1.Satz).
+      // Unterdrückt, wenn diese Mail bereits eine Antwort-Referenz hat (dann ist der Forward
+      // nur zitierter Verlauf).
+      let fwd = '';
+      if (m.forwarded && replyHit < 0) {
+        const fwdText = m.forwarded.bodyHtml.replace(/<[^>]+>/g, ' ');
+        const fwdHit = matchRef(fwdText, idx);
+        if (fwdHit >= 0) {
+          const tgt = messages[fwdHit] as MessageObject;
+          fwd = `<div class="cm-quote" data-cm-jump="${fwdHit}" role="button" tabindex="0"><span class="cm-quote-name">↪ ${esc(i18n.fwd)}: ${esc(tgt.sender.name)}</span><span class="cm-quote-text">${esc(m.forwarded.preview)}</span></div>`;
+        } else {
+          fwd = `<details class="cm-fwd"><summary class="cm-fwd-sum"><span class="cm-fwd-tag">↪ ${esc(i18n.fwd)}${m.forwarded.sender ? `: ${esc(m.forwarded.sender)}` : ''}</span><span class="cm-fwd-prev">${esc(m.forwarded.preview)}</span></summary><div class="cm-fwd-body">${m.forwarded.bodyHtml}</div></details>`;
+        }
+      }
       const atts =
         settings.showAttachments && m.attachments.length
           ? `<div class="cm-atts">${m.attachments

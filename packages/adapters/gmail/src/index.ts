@@ -491,45 +491,45 @@ function buildThreadMessages(settings: ChatSettings): MessageObject[] {
   log(`getMessageNodes: ${nodes.length} Nodes mit Body-Inhalt gefunden (div.adn).`);
   if (nodes.length === 0) return [];
 
-  // Quelle 1: alle aufgeklappten Mails aus dem DOM
+  // BUBBLES = NUR echte Gmail-Mails (eine pro div.adn). Absender/Zeit kommen aus Gmails
+  // Metadaten (span.gD / span.g3) → es kann nie "Unbekannt" entstehen. Die Super-Collapse-
+  // Expansion holt bereits ALLE Mails in den DOM, daher ist domMsgs vollständig.
+  //
+  // Die geparste Zitat-Kette wird BEWUSST nicht mehr als Bubble-Quelle gemerged: sie war die
+  // Ursache geratener "Unbekannt"-Absender UND teurer Mehrfach-Parserei pro Render (parseThread
+  // über jeden Node). Der zitierte Verlauf ist redundant — er steht ja schon als die Bubbles
+  // darüber. (Prinzip: Gmail-Grenzen vertrauen, Verlauf wegschneiden.)
   const domMsgs = nodes
     .map((n) => extractFromNode(n, ownEmails, ownNames, settings))
     .filter((m): m is MessageObject => m !== null);
-  log(`domMsgs: ${domMsgs.length} Nachrichten aus DOM-Nodes.`);
+  log(`domMsgs: ${domMsgs.length} Nachrichten aus DOM-Nodes (Bubble-Quelle).`);
 
-  // Quelle 2: BESTE Zitat-Kette aus ALLEN aufgeklappten Mails (nicht nur der neuesten).
-  //
-  // Problem: Die neueste Mail (z. B. kurze Antwort "Das ist gut...") zitiert oft
-  // NUR die unmittelbar vorherige Mail — quoteMsgs.length = domMsgs.length → kein Gewinn.
-  // Gmail lädt Mails älter als ~48h in langen Threads nicht in den DOM (lazy render);
-  // ihr Inhalt ist nur über die Zitat-Kette einer sichtbaren Mail erreichbar.
-  //
-  // Fix: alle Nodes als Zitat-Quelle probieren, längste Kette verwenden.
-  // Typischerweise enthält die VORLETZTE sichtbare Mail die vollständigste
-  // Kette (z. B. Lo's Zusammenfassung vom 18. Juni zitiert alle 8 Vorgänger).
-  let quoteMsgs: MessageObject[] = [];
-  for (const node of nodes) {
-    const body = node.querySelector<HTMLElement>('div.a3s');
-    if (!body?.textContent?.trim()) continue;
-    const parsed = parseThread(body.innerHTML, {
-      ownEmails,
-      ownName: ownNames[0],
-      languages: settings.languages,
-      filterSignatures: settings.filterSignatures,
-    });
-    for (const m of parsed) {
-      if (!m.isOwn) m.isOwn = isOwnSender(m.sender, ownEmails, ownNames);
+  let messages = domMsgs;
+
+  // Notnagel: NUR falls keine einzige DOM-Mail auswertbar war (sehr selten) — beste
+  // Zitat-Kette als Fallback, damit der Verlauf nie komplett verschwindet.
+  if (messages.length === 0) {
+    let quoteMsgs: MessageObject[] = [];
+    for (const node of nodes) {
+      const body = node.querySelector<HTMLElement>('div.a3s');
+      if (!body?.textContent?.trim()) continue;
+      const parsed = parseThread(body.innerHTML, {
+        ownEmails,
+        ownName: ownNames[0],
+        languages: settings.languages,
+        filterSignatures: settings.filterSignatures,
+      });
+      for (const m of parsed) {
+        if (!m.isOwn) m.isOwn = isOwnSender(m.sender, ownEmails, ownNames);
+      }
+      if (parsed.length > quoteMsgs.length) quoteMsgs = parsed;
     }
-    if (parsed.length > quoteMsgs.length) quoteMsgs = parsed;
+    log(`Fallback Zitat-Kette: ${quoteMsgs.length} Nachrichten.`);
+    messages = quoteMsgs;
   }
-  log(`quoteMsgs: ${quoteMsgs.length} Nachrichten aus bester Zitat-Kette.`);
 
-  // Cache-Anhaenge wieder anheften (eingeklappte Mails) + Reply-Kontext bereinigen
-  const merged = mergeThreadMessages(domMsgs, quoteMsgs);
-  log(`merged: ${merged.length} Nachrichten nach Merge (dom=${domMsgs.length}, quote=${quoteMsgs.length}).`);
-  return pruneRedundantReplyTo(
-    applyCachedAttachments(merged, loadAttCache()),
-  );
+  // Cache-Anhänge wieder anheften (eingeklappte Mails) + redundanten Reply-Kontext bereinigen.
+  return pruneRedundantReplyTo(applyCachedAttachments(messages, loadAttCache()));
 }
 
 /** Hat dieser Knoten einen auswertbaren Mail-Body (div.a3s ODER Notification-Fallback div.ii.gt)? */
