@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mail to Chat — Datenschutzerklärung</title>
+<title>Mail to Chat — Datenschutzerklärung / Privacy Policy</title>
 <style>
   :root { color-scheme: light dark; }
   body { max-width: 760px; margin: 40px auto; padding: 0 20px;
@@ -15,11 +15,25 @@
   .muted { opacity: 0.7; font-size: 0.9em; }
   code { background: rgba(128,128,128,0.18); padding: 1px 5px; border-radius: 4px; }
   ul { padding-left: 1.2em; }
+  a { color: #c79100; }
   .box { border-left: 3px solid #e6b400; padding: 8px 14px; background: rgba(230,180,0,0.08);
     border-radius: 6px; margin: 16px 0; }
+  .langbar { display: flex; gap: 8px; margin: 0 0 8px; }
+  .langbar a { text-decoration: none; font-size: 0.9em; padding: 4px 12px; border-radius: 99px;
+    border: 1px solid rgba(128,128,128,0.35); color: inherit; opacity: 0.8; }
+  .langbar a:hover { opacity: 1; background: rgba(230,180,0,0.12); }
+  .sep { border: none; border-top: 1px solid rgba(128,128,128,0.3); margin: 48px 0; }
 </style>
 </head>
 <body>
+
+<div class="langbar">
+  <a href="#de">Deutsch</a>
+  <a href="#en">English</a>
+</div>
+
+<!-- ============================== DEUTSCH ============================== -->
+<section id="de">
 
 <h1>Datenschutzerklärung — Mail to Chat</h1>
 <p class="muted">Browser-Erweiterung „Mail to Chat". Stand: 20. Juni 2026.</p>
@@ -75,6 +89,68 @@ verwaltet — der Entwickler von Mail to Chat erhält dabei nichts.</p>
 
 <h2>8. Kontakt</h2>
 <p>Fragen zum Datenschutz: <a href="mailto:deeeellloooo@gmail.com">deeeellloooo@gmail.com</a></p>
+
+</section>
+
+<hr class="sep">
+
+<!-- ============================== ENGLISH ============================== -->
+<section id="en">
+
+<h1>Privacy Policy — Mail to Chat</h1>
+<p class="muted">Browser extension "Mail to Chat". Last updated: 20 June 2026.</p>
+
+<div class="box">
+<strong>In short:</strong> Mail to Chat processes everything <strong>entirely locally in your
+browser</strong>. There is no server, no tracking, no advertising. <strong>None of your email
+content ever leaves your device</strong>, and the developer receives no data whatsoever.
+</div>
+
+<h2>1. What the extension does</h2>
+<p>Mail to Chat displays open email threads in Gmail (<code>mail.google.com</code>) as a clear
+chat view. To do so, it reads the content of the currently displayed Gmail page (sender, date,
+message text, attachments) <strong>directly from the page content in your browser</strong> and
+renders the chat view from it — entirely on your device.</p>
+
+<h2>2. What data is processed — and what is NOT</h2>
+<ul>
+  <li><strong>Read locally (not stored, not sent):</strong> the content of the currently open
+    Gmail page, solely to display the chat view. This content is not stored, not logged and not
+    transmitted.</li>
+  <li><strong>Stored locally (settings only):</strong> via the browser's settings storage
+    (<code>chrome.storage</code>), only your own settings are saved — e.g. chosen design/theme,
+    font size, timestamp display, auto-activation, your own email addresses (to identify "my own
+    message") and per-thread display preferences. <strong>Email content is not included.</strong></li>
+  <li><strong>Not collected:</strong> no analytics/tracking data, no usage statistics, no device
+    or location data, no advertising identifiers.</li>
+</ul>
+
+<h2>3. Sharing with third parties</h2>
+<p>None. No data is transmitted, sold or shared with the developer or any third party. There is
+no backend and no network connection from the extension to any servers of our own.</p>
+
+<h2>4. Syncing your settings</h2>
+<p>If your browser has its own sync enabled (e.g. Chrome Sync via your Google account), your
+<em>settings</em> may be synced between your own devices through that browser function. This sync
+is managed solely by your browser — the developer of Mail to Chat receives nothing in the process.</p>
+
+<h2>5. Permissions</h2>
+<ul>
+  <li><code>storage</code> — to save your settings.</li>
+  <li>Access to <code>mail.google.com</code> — to read the open Gmail page and render the chat
+    view. No access to any other websites.</li>
+</ul>
+
+<h2>6. Children</h2>
+<p>The extension is not directed at children and does not collect any personal data.</p>
+
+<h2>7. Changes to this policy</h2>
+<p>If changes are made, this page will be updated with a new date.</p>
+
+<h2>8. Contact</h2>
+<p>Privacy questions: <a href="mailto:deeeellloooo@gmail.com">deeeellloooo@gmail.com</a></p>
+
+</section>
 
 </body>
 </html>
