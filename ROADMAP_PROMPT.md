@@ -7,9 +7,9 @@
 
 ## 1. Kontext & Stand
 
-**Produkt:** Chrome Extension (MV3) + Firefox (MV2). Monorepo: `packages/core`, `packages/ui`, `packages/adapters/gmail`, `apps/chrome-ext`, `apps/firefox-ext`. TypeScript strict, esbuild, Vitest (102 Tests).
+**Produkt:** Chrome Extension (MV3) + Firefox (MV2). Monorepo: `packages/core`, `packages/ui`, `packages/adapters/gmail`, `apps/chrome-ext`, `apps/firefox-ext`. TypeScript strict, esbuild, Vitest (129 Tests).
 
-**Aktuell stabile Version:** v1.9.0
+**Aktuell stabile Version:** v1.10.0
 
 **Was funktioniert:**
 
@@ -42,7 +42,7 @@
 **Engineering:**
 
 - Zero-Halluzination: nur implementieren was du 100% verstehst. Bei Unklarheit: Rückfrage.
-- Alle Änderungen müssen `npm run build` + `npx vitest run` (102/102) bestehen.
+- Alle Änderungen müssen `npm run build` + `npx vitest run` (129/129) bestehen.
 - Kein Refactoring ohne konkreten Grund. Stabilität > Eleganz.
 - TypeScript strict: kein `any`, kein `@ts-ignore`.
 - NASA-Redundanz: jede kritische Funktion hat mindestens zwei unabhängige Pfade.
@@ -106,10 +106,13 @@ Einzige CSS-Regel: Listitem-Container bekommt `bg` für nahtlose Ecken. Kein act
 - Priorität: sessionMode (Klick) > Thread-Pref > autoActivate (global)
 - debug: `window.__chatmailDebug.state.threadId` zeigt aktive Thread-ID
 
-#### 3.4 Smart Quote-Collapse
+#### 3.4 Smart Quote-Collapse (v1.10.0 — erledigt ✓)
 
-**Was:** Zitierter Text soll einklappbar sein (wie in Gmail selbst), mit Badge "X Zeilen zitiert".
-**Impl:** Toggle-Animation + Badge im `packages/ui`.
+**Status:** Verbliebene `<blockquote>` in Bubbles werden via `wireQuoteCollapse`
+(packages/ui/render.ts) standardmäßig eingeklappt, Badge "X Zeilen zitiert",
+animiertes Auf-/Zuklappen, DE/EN. (Reply-/Forward-Zitate werden bereits vom
+Parser zu Referenz-Chips reduziert; diese Funktion fängt residuale Inline-Quotes.)
+Test in render.test.ts.
 
 #### 3.4b Lade-Übergang bei langen Threads (Perceived Performance) — OFFEN
 
@@ -138,9 +141,12 @@ an der schon iteriert wurde). Bewusst NICHT am Ende einer Session drangeflanscht
 
 **Was:** Firefox-Extension ist technisch vorhanden — Audit: welche Features fehlen oder verhalten sich anders?
 
-#### 3.7 Onboarding bei Erstinstallation
+#### 3.7 Onboarding bei Erstinstallation (v1.10.0 — erledigt ✓)
 
-**Was:** Einmaliger Tooltip nach Erstinstallation: "✦ Mail to Chat ist aktiv — deine Mails werden jetzt als Chat angezeigt."
+**Status:** Einmaliges Coachmark unter dem Toggle ("Mail to Chat ist aktiv ✦ …").
+Persistenz via `settings.onboarded` + `deps.setOnboarded` (chrome.storage). Zeigt
+sich genau einmal, sobald der Toggle das erste Mal sichtbar ist; self-dismiss nach
+12s / Klick / Button. Adapter: `showOnboarding()` + Trigger in `injectToolbarButton`.
 
 #### 3.8 htmlSafeBg Übergang (Feinheit)
 

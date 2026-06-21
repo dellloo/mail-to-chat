@@ -28,6 +28,8 @@ export interface ChatSettings {
   languages: ParserLanguage[];
   /** UI-Sprache. */
   uiLanguage: 'de' | 'en';
+  /** Einmaliger Onboarding-Hinweis nach Erstinstallation bereits gezeigt? */
+  onboarded: boolean;
   /** Chat-Design separat anpassen (false = folgt dem allgemeinen Design). */
   chatThemeSeparate: boolean;
   /**
@@ -81,6 +83,7 @@ export const DEFAULT_SETTINGS: ChatSettings = {
   showDateSeparators: true,
   languages: ['de', 'en', 'fr', 'es', 'it'],
   uiLanguage: 'de',
+  onboarded: false,
   chatThemeSeparate: false,
   htmlSafeBg: true,
   gmailSkin: {

@@ -95,6 +95,14 @@ initGmailAdapter({
       /* Kontext weg - Modus gilt für diese Session trotzdem */
     }
   },
+  setOnboarded: () => {
+    if (!contextAlive()) return;
+    try {
+      void chrome.storage.sync.set({ onboarded: true });
+    } catch {
+      /* Kontext weg - der Hinweis erscheint dann ggf. nochmal, unkritisch */
+    }
+  },
   openSettings: () => {
     if (!contextAlive()) {
       // Kontext tot (Extension wurde neu geladen) → Hinweis statt Crash

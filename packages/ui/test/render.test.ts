@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MessageObject } from '@chatmail/core';
-import { DEFAULT_SETTINGS, renderMessages, buildCss, THEMES } from '../src/index';
+import { DEFAULT_SETTINGS, renderMessages, buildCss, THEMES, createChatView } from '../src/index';
 
 const msg = (over: Partial<MessageObject>): MessageObject => ({
   sender: { name: 'Max', email: 'max@y.de' },
@@ -46,6 +46,25 @@ describe('UI-Renderer', () => {
     expect(html).toContain('cm-sig-collapse'); // Einklappen unten
     expect(html).toContain('Signatur anzeigen');
     expect(html).toContain('Signatur ausblenden');
+  });
+
+  it('Smart Quote-Collapse: verbliebene blockquotes werden mit Zeilen-Badge eingeklappt', () => {
+    const m = msg({
+      bodyHtml: 'Kurze Antwort.<blockquote><div>Zitat 1</div><div>Zitat 2</div><div>Zitat 3</div></blockquote>',
+    });
+    const host = createChatView([m], DEFAULT_SETTINGS);
+    const shadow = host.shadowRoot;
+    expect(shadow).not.toBeNull();
+    const btn = shadow!.querySelector('.cm-bq-btn');
+    expect(btn).not.toBeNull();
+    expect(btn!.textContent).toContain('Zeilen zitiert');
+    // Standardmäßig eingeklappt (kein cm-bq-open)
+    const content = shadow!.querySelector('.cm-bq-content');
+    expect(content).not.toBeNull();
+    expect(content!.classList.contains('cm-bq-open')).toBe(false);
+    // Klick klappt auf
+    (btn as HTMLButtonElement).click();
+    expect(content!.classList.contains('cm-bq-open')).toBe(true);
   });
 
   it('rendert Bild-Anhänge als Thumbnails und Dateien als Chips', () => {

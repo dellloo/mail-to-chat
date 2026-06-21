@@ -24,6 +24,8 @@ export interface AdapterDeps {
   openSettings?: () => void;
   /** Persistiert den Chat-Modus global (Button = harter Schalter für alle Mails). */
   setAutoActivate?: (on: boolean) => void;
+  /** Markiert den einmaligen Onboarding-Hinweis als gezeigt. */
+  setOnboarded?: () => void;
 }
 
 /** Ringpuffer: letzte 50 Log-Einträge für window.__chatmailDebug.log */
@@ -72,6 +74,9 @@ let scheduleCheckRef: (() => void) | null = null;
 // Melde-Funktion: in der Boot-Closure gesetzt (braucht Zugriff auf version +
 // DEBUG_LOG + State). Module-level Ref, damit das Kontextmenü sie aufrufen kann.
 let reportIssueRef: (() => void) | null = null;
+// Onboarding: einmaliger Hinweis nach Erstinstallation. State pro Page-Load —
+// 'idle' = noch nicht geprueft, 'pending' = Settings-Check laeuft, 'done' = fertig.
+let onboardingState: 'idle' | 'pending' | 'done' = 'idle';
 
 /** Kontext für das WhatsApp-Style-Banner über dem Gmail-Editor. */
 let pendingCtx: { label: string; preview: string; time?: string } | null = null;
@@ -1302,6 +1307,7 @@ const TB_ID = 'chatmail-toggle-tb';
 // Wrapper-Div, das Toggle + Gear buendelt - nur dieser wird absolut in der Leiste verankert
 const GROUP_ID = 'chatmail-tb-group';
 const REPORT_ID = 'chatmail-report-btn';
+const ONBOARD_ID = 'chatmail-onboarding';
 
 /**
  * Berechnet die linke Position der Gruppe: rechts neben Gmails Icon-Gruppe.
@@ -1314,6 +1320,83 @@ function positionGroup(group: HTMLElement, toolbar: HTMLElement): void {
   const anchor = firstChild?.getBoundingClientRect();
   const left = anchor && anchor.width > 0 ? anchor.right - base.left + 12 : 8;
   group.style.left = `${Math.max(8, Math.round(left))}px`;
+}
+
+/**
+ * Einmaliger Onboarding-Hinweis nach Erstinstallation: ein dezentes Coachmark
+ * unter dem Toggle ("Mail to Chat ist aktiv ..."). Wird genau einmal gezeigt
+ * (Persistenz via deps.setOnboarded → chrome.storage), self-dismiss nach 12s,
+ * Klick/Toggle/Button schliesst es. Reines isoliertes DOM, kein Gmail-Eingriff.
+ */
+function showOnboarding(anchor: HTMLElement): void {
+  if (document.getElementById(ONBOARD_ID)) return;
+  const lang: 'de' | 'en' = (navigator.language || '').toLowerCase().startsWith('de') ? 'de' : 'en';
+  const txt = lang === 'de'
+    ? {
+        title: 'Mail to Chat ist aktiv ✦',
+        body: 'Jede Mail öffnet ab jetzt automatisch als Chat. Mit diesem Schalter wechselst du jederzeit zurück zu Klassisch — Rechtsklick darauf für Optionen pro Mail.',
+        ok: 'Verstanden',
+      }
+    : {
+        title: 'Mail to Chat is active ✦',
+        body: 'Every email now opens as a chat automatically. Use this switch to go back to Classic anytime — right-click it for per-email options.',
+        ok: 'Got it',
+      };
+
+  if (!document.getElementById('chatmail-onboarding-css')) {
+    const st = document.createElement('style');
+    st.id = 'chatmail-onboarding-css';
+    st.textContent =
+      '@keyframes cmObIn{from{opacity:0;transform:translateY(-8px) scale(0.97)}to{opacity:1;transform:none}}' +
+      `#${ONBOARD_ID}{animation:cmObIn 0.28s cubic-bezier(0.22,1,0.36,1)}` +
+      `#${ONBOARD_ID} button:active{transform:scale(0.96)}`;
+    document.head.appendChild(st);
+  }
+
+  const pop = document.createElement('div');
+  pop.id = ONBOARD_ID;
+  pop.style.cssText = [
+    'position:fixed', 'z-index:2147483646', 'width:300px', 'box-sizing:border-box',
+    'background:#1f2328', 'color:#fff', 'border-radius:14px', 'padding:15px 16px 14px',
+    'box-shadow:0 16px 48px rgba(0,0,0,0.45)', 'border:1px solid rgba(255,255,255,0.08)',
+    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
+  ].join(';');
+  pop.innerHTML =
+    `<div id="cmObArrow" style="position:absolute;top:-7px;width:13px;height:13px;background:#1f2328;` +
+    `border-left:1px solid rgba(255,255,255,0.08);border-top:1px solid rgba(255,255,255,0.08);` +
+    `transform:rotate(45deg)"></div>` +
+    `<div style="font-weight:700;font-size:14px;color:#ffd54a;margin-bottom:5px">${txt.title}</div>` +
+    `<p style="margin:0 0 12px;font-size:12.5px;line-height:1.5;opacity:0.88">${txt.body}</p>` +
+    `<button type="button" id="cmObOk" style="border:none;cursor:pointer;font-family:inherit;` +
+    `font-size:12.5px;font-weight:700;color:#1a1a1a;background:#ffd54a;border-radius:8px;` +
+    `padding:7px 16px;float:right">${txt.ok}</button>` +
+    `<div style="clear:both"></div>`;
+  document.body.appendChild(pop);
+
+  // Positionierung: unter dem Toggle, im Viewport gehalten.
+  const r = anchor.getBoundingClientRect();
+  const pr = pop.getBoundingClientRect();
+  const left = Math.max(12, Math.min(r.left, window.innerWidth - pr.width - 12));
+  pop.style.left = `${Math.round(left)}px`;
+  pop.style.top = `${Math.round(r.bottom + 11)}px`;
+  const arrow = pop.querySelector<HTMLElement>('#cmObArrow');
+  if (arrow) {
+    const center = r.left + r.width / 2;
+    arrow.style.left = `${Math.round(Math.max(12, Math.min(center - left - 6, pr.width - 24)))}px`;
+  }
+
+  const remove = (): void => {
+    pop.remove();
+    document.removeEventListener('click', onDocClick, true);
+  };
+  function onDocClick(e: MouseEvent): void {
+    // Klick irgendwo (auch auf den Toggle) schliesst den Hinweis.
+    if (!pop.contains(e.target as Node)) remove();
+  }
+  pop.querySelector('#cmObOk')?.addEventListener('click', remove);
+  // Erst im naechsten Tick lauschen, sonst faengt der oeffnende Klick gleich wieder.
+  setTimeout(() => document.addEventListener('click', onDocClick, true), 0);
+  window.setTimeout(remove, 12_000);
 }
 
 /**
@@ -1472,6 +1555,22 @@ function injectToolbarButton(deps: AdapterDeps): void {
   if (grp.parentElement !== toolbar) toolbar.appendChild(grp);
   grp.style.display = hasMail ? 'inline-flex' : 'none';
   if (hasMail) positionGroup(grp, toolbar);
+
+  // Onboarding: einmaliger Hinweis, sobald der Toggle das erste Mal sichtbar ist.
+  if (hasMail && onboardingState === 'idle') {
+    onboardingState = 'pending';
+    void deps.getSettings().then((s) => {
+      if (s.onboarded) { onboardingState = 'done'; return; }
+      const g = document.getElementById(GROUP_ID);
+      if (g && getComputedStyle(g).display !== 'none') {
+        showOnboarding(g);
+        deps.setOnboarded?.();
+        onboardingState = 'done';
+      } else {
+        onboardingState = 'idle'; // Toggle (noch) nicht sichtbar → naechster Zyklus
+      }
+    }).catch(() => { onboardingState = 'idle'; });
+  }
 }
 
 
@@ -1740,7 +1839,7 @@ export function initGmailAdapter(deps: AdapterDeps): void {
   // Script-Instanz im DOM - deren Klick-Listener sind verwaist. Ohne Aufraeumen
   // wuerde diese Instanz die Injektion ueberspringen (ID existiert ja schon)
   // und der Nutzer klickt ins Leere. Also: alle Reste entfernen, frisch setzen.
-  for (const id of [BTN_ID, GROUP_ID, TB_ID, GEAR_ID, REPORT_ID, 'chatmail-reply-ctx', 'chatmail-ctx-menu']) {
+  for (const id of [BTN_ID, GROUP_ID, TB_ID, GEAR_ID, REPORT_ID, ONBOARD_ID, 'chatmail-reply-ctx', 'chatmail-ctx-menu']) {
     const orphan = document.getElementById(id);
     if (orphan) {
       orphan.remove();
