@@ -1,5 +1,5 @@
 import { parseThread, type Attachment, type MessageObject, type Sender } from '@chatmail/core';
-import { createChatView, ICONS, type ChatSettings } from '@chatmail/ui';
+import { createChatView, ICONS, openReportDialog, reportMenuLabel, type ChatSettings } from '@chatmail/ui';
 import { applySkin, updateSkinPageClass } from './skin';
 
 export { applySkin, buildSkinCss } from './skin';
@@ -69,6 +69,9 @@ type ThreadPrefs = Record<string, ThreadMode>;
  * ohne dass showThreadContextMenu() Closure-Zugriff auf scheduleCheck braucht.
  */
 let scheduleCheckRef: (() => void) | null = null;
+// Melde-Funktion: in der Boot-Closure gesetzt (braucht Zugriff auf version +
+// DEBUG_LOG + State). Module-level Ref, damit das Kontextmenü sie aufrufen kann.
+let reportIssueRef: (() => void) | null = null;
 
 /** Kontext für das WhatsApp-Style-Banner über dem Gmail-Editor. */
 let pendingCtx: { label: string; preview: string; time?: string } | null = null;
@@ -843,6 +846,12 @@ function showThreadContextMenu(
     addItem('Einstellungen…', '', openSettings);
   }
 
+  // Problem melden — erfasst Live-State + Logs aus genau diesem Tab.
+  if (reportIssueRef) {
+    const lang: 'de' | 'en' = (navigator.language || '').toLowerCase().startsWith('de') ? 'de' : 'en';
+    addItem(reportMenuLabel(lang), '', () => reportIssueRef?.());
+  }
+
   document.body.appendChild(menu);
   // Overflow-Guard: Menü darf nicht aus dem Viewport ragen
   const rect = menu.getBoundingClientRect();
@@ -1292,6 +1301,7 @@ const GEAR_ID = 'chatmail-settings-btn';
 const TB_ID = 'chatmail-toggle-tb';
 // Wrapper-Div, das Toggle + Gear buendelt - nur dieser wird absolut in der Leiste verankert
 const GROUP_ID = 'chatmail-tb-group';
+const REPORT_ID = 'chatmail-report-btn';
 
 /**
  * Berechnet die linke Position der Gruppe: rechts neben Gmails Icon-Gruppe.
@@ -1417,6 +1427,45 @@ function injectToolbarButton(deps: AdapterDeps): void {
       gear.addEventListener('click', () => deps.openSettings?.());
       grp.appendChild(gear);
     }
+    // Dezente BETA-Markierung: signalisiert Entwicklungszustand, ohne zu stören.
+    const beta = document.createElement('span');
+    beta.textContent = 'BETA';
+    beta.dataset['cmtt'] = 'Mail to Chat ist in aktiver Entwicklung';
+    beta.style.cssText = [
+      'font-size:9px', 'font-weight:700', 'letter-spacing:0.5px', 'line-height:1',
+      'padding:2px 5px', 'border-radius:4px', 'color:#b8860b',
+      'border:1px solid rgba(230,180,0,0.5)', 'background:rgba(230,180,0,0.12)',
+      'flex-shrink:0', 'user-select:none', 'cursor:default',
+    ].join(';');
+    grp.appendChild(beta);
+
+    // Eigener „Problem melden"-Button direkt neben BETA — erfasst Live-State
+    // + Logs dieses Tabs und öffnet den Melde-Dialog (GitHub / E-Mail).
+    const reportBtn = document.createElement('button');
+    reportBtn.id = REPORT_ID;
+    reportBtn.type = 'button';
+    reportBtn.dataset['cmtt'] = 'Problem melden';
+    reportBtn.innerHTML = ICONS.report;
+    const repSrLabel = document.createElement('span');
+    repSrLabel.style.cssText = 'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0';
+    repSrLabel.textContent = 'Problem melden';
+    reportBtn.appendChild(repSrLabel);
+    reportBtn.style.cssText = [
+      'width:28px', 'height:28px', 'border-radius:50%', 'border:none',
+      'background:rgba(128,128,128,0.16)', 'color:inherit', 'font-size:14px',
+      'cursor:pointer', 'display:inline-flex', 'align-items:center',
+      'justify-content:center', 'flex-shrink:0', 'transition:background 0.15s, color 0.15s',
+    ].join(';');
+    reportBtn.addEventListener('mouseenter', () => {
+      reportBtn.style.background = 'rgba(230,180,0,0.22)';
+      reportBtn.style.color = '#b8860b';
+    });
+    reportBtn.addEventListener('mouseleave', () => {
+      reportBtn.style.background = 'rgba(128,128,128,0.16)';
+      reportBtn.style.color = 'inherit';
+    });
+    reportBtn.addEventListener('click', () => reportIssueRef?.());
+    grp.appendChild(reportBtn);
     void updateButtonLabel(deps);
   }
   // Gmail tauscht die Leiste je nach Ansicht aus -> Gruppe umziehen wenn noetig
@@ -1691,7 +1740,7 @@ export function initGmailAdapter(deps: AdapterDeps): void {
   // Script-Instanz im DOM - deren Klick-Listener sind verwaist. Ohne Aufraeumen
   // wuerde diese Instanz die Injektion ueberspringen (ID existiert ja schon)
   // und der Nutzer klickt ins Leere. Also: alle Reste entfernen, frisch setzen.
-  for (const id of [BTN_ID, GROUP_ID, TB_ID, GEAR_ID, 'chatmail-reply-ctx', 'chatmail-ctx-menu']) {
+  for (const id of [BTN_ID, GROUP_ID, TB_ID, GEAR_ID, REPORT_ID, 'chatmail-reply-ctx', 'chatmail-ctx-menu']) {
     const orphan = document.getElementById(id);
     if (orphan) {
       orphan.remove();
@@ -1727,8 +1776,37 @@ export function initGmailAdapter(deps: AdapterDeps): void {
     dump(): void;
     nodeInfo(): void;
     forceCheck(): void;
+    report(): void;
     readonly version: string;
   };
+
+  // Problem-melden: sammelt rein technische Diagnose (Version, Browser, State,
+  // letzte 20 Log-Zeilen) und öffnet den Melde-Dialog. KEINE Mail-Inhalte —
+  // State sind nur Flags/IDs, Logs sind operative Meldungen (siehe PRIVACY.md).
+  const reportIssue = (): void => {
+    const lang: 'de' | 'en' = (navigator.language || '').toLowerCase().startsWith('de') ? 'de' : 'en';
+    const st = {
+      active: state.active, activating, toggling, sessionMode,
+      threadId: getThreadId(), retryActivationCount,
+      composeMode: state.composeMode,
+      hostConnected: state.host?.isConnected ?? false,
+      listConnected: state.hiddenList?.isConnected ?? false,
+      generation: myGen,
+    };
+    const now = Date.now();
+    const logs = DEBUG_LOG.slice(-20)
+      .map((e) => `-${((now - e.t) / 1000).toFixed(1)}s  ${e.msg}`)
+      .join('\n');
+    const details = [
+      `Host: ${location.host}`,
+      `State: ${JSON.stringify(st)}`,
+      '',
+      'Logs (operativ, letzte 20 — keine Mail-Inhalte):',
+      logs || '(keine)',
+    ].join('\n');
+    openReportDialog({ lang, version, where: lang === 'de' ? 'Gmail-Tab' : 'Gmail tab', details });
+  };
+  reportIssueRef = reportIssue;
   (window as Window & { __chatmailDebug?: DbgHandle }).__chatmailDebug = {
     get state() {
       const tid = getThreadId();
@@ -1788,6 +1866,7 @@ export function initGmailAdapter(deps: AdapterDeps): void {
       console.groupEnd();
     },
     forceCheck() { log('forceCheck() via Debug-Handle'); scheduleCheck(); },
+    report() { reportIssue(); },
     version,
   };
   // Debug-Handle: nur in der Isolated World zugänglich.

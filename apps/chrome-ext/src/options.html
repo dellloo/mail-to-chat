@@ -50,6 +50,19 @@
       font-size: 0.72em; font-weight: 700; padding: 5px 12px; border-radius: 999px;
       letter-spacing: 0.04em;
     }
+    .beta-chip {
+      display: inline-block; vertical-align: middle; margin-left: 8px;
+      background: rgba(0,0,0,0.82); color: #ffd54a;
+      font-size: 0.5em; font-weight: 800; letter-spacing: 0.09em;
+      padding: 3px 8px; border-radius: 999px;
+    }
+    .report-btn {
+      width: 100%; border: 1px solid var(--line); border-radius: 12px;
+      background: var(--bg); color: var(--ink); font-weight: 700; font-size: 0.92em;
+      padding: 11px 16px; cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s;
+    }
+    .report-btn:hover { border-color: var(--brand); box-shadow: 0 3px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
     /* Segmented Control (Sprache) - beide Optionen sichtbar, 1 Klick */
     .seg {
       display: inline-flex; background: rgba(0,0,0,0.82); border-radius: 999px; padding: 3px;
@@ -236,7 +249,7 @@
         <circle class="cm-logo-dot3" cx="74" cy="68" r="4.5" fill="#111111"/>
       </svg>
       <div>
-        <h1>Mail to Chat</h1>
+        <h1>Mail to Chat <span class="beta-chip">BETA</span></h1>
         <div class="tag" data-i18n="tagline">Deine Mails. Dein Tempo. Kein Chaos.</div>
       </div>
       <div class="hero-right">
@@ -362,6 +375,12 @@
           </p>
         </div>
 
+        <div class="card">
+          <h2 data-i18n="hFeedback">Feedback & Fehler</h2>
+          <p style="margin:0 0 12px;font-size:0.9em;color:var(--ink-soft);line-height:1.55" data-i18n="feedbackBody">Etwas klappt nicht oder du hast eine Idee? Melde es mit einem Klick – technische Debug-Infos werden automatisch erfasst (kein Mail-Inhalt), damit ich das Problem exakt nachvollziehen kann.</p>
+          <button type="button" id="report-btn" class="report-btn" data-i18n="reportBtn">🛠️ Problem melden</button>
+        </div>
+
         <div class="bmc">
           <p data-i18n="bmcText">Hey, ich bin Dello :) Ich baue Mail to Chat ganz alleine in meiner Freizeit – ohne Werbung, ohne Tracking, ohne Abo. Wenn dieses Tool deinen Mail-Alltag ein Stück schöner und übersichtlicher macht, freue ich mich riesig über einen Kaffee :)<br><strong>Versprochen: Alle Funktionen bleiben für immer kostenlos.</strong></p>
           <a class="btn" href="https://buymeacoffee.com/dello" target="_blank" rel="noopener" data-i18n="bmcBtn">☕ Spendier mir einen Kaffee</a>
@@ -369,7 +388,7 @@
       </div>
     </div>
 
-    <div class="footer" data-i18n="footer">Mail to Chat v1.3.0 · Alle Daten bleiben auf deinem Gerät · Open Source</div>
+    <div class="footer" data-i18n="footer">Mail to Chat v1.9.0 · Alle Daten bleiben auf deinem Gerät · Open Source</div>
   </div>
 
   <script src="options.js"></script>

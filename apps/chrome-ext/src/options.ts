@@ -1,5 +1,5 @@
 import type { MessageObject, ParserLanguage } from '@chatmail/core';
-import { buildCss, DEFAULT_SETTINGS, ICONS, isDarkColor, renderMessages, THEMES, type ChatSettings } from '@chatmail/ui';
+import { buildCss, DEFAULT_SETTINGS, ICONS, isDarkColor, openReportDialog, renderMessages, THEMES, type ChatSettings } from '@chatmail/ui';
 
 /** Options Page: liest/schreibt chrome.storage.sync, mit Live-Vorschau. */
 
@@ -38,7 +38,10 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
     tipBody: 'Mail-Liste und offene Mail nebeneinander (wie in Thunderbird) ist eine <strong>native Gmail-Funktion</strong> und funktioniert perfekt mit der Chat-Ansicht:<br><br>In Gmail: <strong>Zahnrad-Symbol (oben rechts) → „Lesebereich" → „Rechts neben dem Posteingang"</strong>',
     bmcText: 'Hey, ich bin Dello :) Ich baue Mail to Chat ganz alleine in meiner Freizeit – ohne Werbung, ohne Tracking, ohne Abo. Wenn dieses Tool deinen Mail-Alltag ein Stück schöner und übersichtlicher macht, freue ich mich riesig über einen Kaffee :)<br><strong>Versprochen: Alle Funktionen bleiben für immer kostenlos.</strong>',
     bmcBtn: `${ICONS.coffee} Spendier mir einen Kaffee`,
-    footer: 'Mail to Chat v1.4.0 · Alle Daten bleiben auf deinem Gerät · Open Source',
+    hFeedback: 'Feedback & Fehler',
+    feedbackBody: 'Etwas klappt nicht oder du hast eine Idee? Melde es mit einem Klick – technische Debug-Infos werden automatisch erfasst (kein Mail-Inhalt), damit ich das Problem exakt nachvollziehen kann.',
+    reportBtn: '🛠️ Problem melden',
+    footer: 'Mail to Chat v1.9.0 · Alle Daten bleiben auf deinem Gerät · Open Source',
   },
   en: {
     tagline: 'Your mail. Your pace. No chaos.', badge: '100% LOCAL',
@@ -64,7 +67,10 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
     tipBody: 'Mail list and open mail side by side (like Thunderbird) is a <strong>native Gmail feature</strong> and works perfectly with the chat view:<br><br>In Gmail: <strong>gear icon (top right) → "Reading pane" → "Right of inbox"</strong>',
     bmcText: "Hey, I'm Dello :) I build Mail to Chat all by myself in my free time - no ads, no tracking, no subscription. If this tool makes your daily email routine a bit nicer and clearer, I'd be absolutely thrilled to receive a coffee :)<br><strong>Promised: All features will remain free forever.</strong>",
     bmcBtn: `${ICONS.coffee} Buy me a coffee`,
-    footer: 'Mail to Chat v1.3.8 · All data stays on your device · Open source',
+    hFeedback: 'Feedback & bugs',
+    feedbackBody: "Something not working or got an idea? Report it in one click – technical debug info is collected automatically (no mail content), so I can reproduce the issue exactly.",
+    reportBtn: '🛠️ Report a problem',
+    footer: 'Mail to Chat v1.9.0 · All data stays on your device · Open source',
   },
 };
 
@@ -460,6 +466,30 @@ document.addEventListener('DOMContentLoaded', () => {
         body.style.animation = 'adv-slide-in 0.22s cubic-bezier(0.22,1,0.36,1) forwards';
         setTimeout(() => { body.style.animation = ''; }, 250);
       }
+    });
+  });
+
+  // Problem-melden (Einstellungsseite): kein Live-Gmail-State greifbar, dafür
+  // ein sauberer Settings-Snapshot. Nur technische Werte — keine Mail-Inhalte.
+  document.getElementById('report-btn')?.addEventListener('click', () => {
+    const lang: 'de' | 'en' = settings.uiLanguage === 'en' ? 'en' : 'de';
+    let version = 'dev';
+    try { version = chrome?.runtime?.getManifest?.().version ?? 'dev'; } catch { /* Kontext ohne API */ }
+    const sk = settings.gmailSkin;
+    const details = [
+      'Kontext: Einstellungsseite (kein Live-Gmail-Tab erfasst)',
+      `themeId: ${settings.themeId}`,
+      `fontSize: ${settings.fontSize} · timestamps: ${settings.timestamps} · darkMode: ${settings.darkMode}`,
+      `filterSignatures: ${settings.filterSignatures} · showAttachments: ${settings.showAttachments}`,
+      `showDateSeparators: ${settings.showDateSeparators} · htmlSafeBg: ${settings.htmlSafeBg} · autoActivate: ${settings.autoActivate}`,
+      `chatThemeSeparate: ${settings.chatThemeSeparate} · languages: [${settings.languages.join(',')}]`,
+      `gmailSkin: enabled=${sk.enabled} flair=${sk.flair} radius=${sk.radius} compact=${sk.compact}`,
+      `ownEmails gesetzt: ${settings.ownEmails.length} · ownName gesetzt: ${settings.ownName ? 'ja' : 'nein'}`,
+    ].join('\n');
+    openReportDialog({
+      lang, version,
+      where: lang === 'de' ? 'Einstellungsseite' : 'Settings page',
+      details,
     });
   });
 });
