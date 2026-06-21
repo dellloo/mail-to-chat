@@ -3,7 +3,7 @@
  * Gmail-artiges 2-Spalten-Layout: links Mail-Liste, rechts Lese-/Chat-Bereich.
  * Echter Renderer (chatmail-ui), fiktive Inhalte. Build: `npm run build:demo-video`.
  */
-import { createChatView, DEFAULT_SETTINGS, THEMES } from '@chatmail/ui';
+import { createChatView, DEFAULT_SETTINGS, THEMES, buildCss, isDarkColor } from '@chatmail/ui';
 import type { MessageObject } from '@chatmail/core';
 
 const $ = (id: string): HTMLElement => document.getElementById(id) as HTMLElement;
@@ -69,9 +69,22 @@ const ROWS = [
 
 let themeId = 'whatsapp';
 
+function fillScroll(host: HTMLElement): void {
+  // .cm-chat hat von Haus aus kein height/overflow (im echten Gmail scrollt der Container drumherum).
+  // In der Demo muss .cm-chat selbst den Bereich füllen UND scrollen — sonst entsteht unten ein
+  // schwarzer Rest und der Referenz-Chip liegt unsichtbar darunter.
+  const chat = host.shadowRoot?.querySelector('.cm-chat') as HTMLElement | null;
+  if (chat) {
+    chat.style.height = '100%';
+    chat.style.overflowY = 'auto';
+    chat.style.scrollBehavior = 'smooth';
+  }
+}
+
 function renderChat(idx: number, fade: boolean, prev: HTMLElement | null): HTMLElement {
   const settings = { ...DEFAULT_SETTINGS, themeId, chatThemeSeparate: true, htmlSafeBg: false };
   const next = createChatView(CONVOS[idx] ?? [], settings);
+  fillScroll(next);
   next.style.height = '100%';
   next.style.opacity = fade ? '0' : '1';
   next.style.transition = 'opacity 0.45s ease';
@@ -79,6 +92,22 @@ function renderChat(idx: number, fade: boolean, prev: HTMLElement | null): HTMLE
   if (fade) requestAnimationFrame(() => (next.style.opacity = '1'));
   if (prev) setTimeout(() => prev.remove(), 480);
   return next;
+}
+
+// Theme-Wechsel OHNE Rebuild: nur das Shadow-Stylesheet + dark-Klasse austauschen.
+// Buttrig (keine DOM-Neuerstellung), Scroll-Position bleibt erhalten.
+function retheme(host: HTMLElement, id: string): void {
+  const t = THEMES.find((x) => x.id === id);
+  if (!t) return;
+  const settings = { ...DEFAULT_SETTINGS, themeId: id, chatThemeSeparate: true, htmlSafeBg: false };
+  const style = host.shadowRoot?.querySelector('style');
+  if (style) style.textContent = buildCss(settings);
+  const chat = host.shadowRoot?.querySelector('.cm-chat') as HTMLElement | null;
+  if (chat) {
+    chat.classList.toggle('dark', isDarkColor(t.background));
+    chat.classList.remove('html-safe');
+  }
+  fillScroll(host); // inline height/overflow erneut sichern
 }
 
 const list = $('maillist');
@@ -169,6 +198,8 @@ async function play(): Promise<void> {
     // 3) Unten: Antwort-Referenz → Klick → satisfying Flick hoch zur Original-Nachricht
     const chip = h?.shadowRoot?.querySelector('.cm-quote[data-cm-jump]') as HTMLElement | null;
     if (chip) {
+      chip.scrollIntoView({ behavior: 'smooth', block: 'center' }); // Chip sicher ins Bild holen
+      await wait(650);
       await moveCursor(chip);
       label('Antwort-Referenz — Klick springt zum Original');
       chip.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
@@ -190,9 +221,11 @@ async function play(): Promise<void> {
     label('Mail mit Bild-Anhang');
     await wait(1800);
 
-    // 5) Designs durchwechseln — auf der reichen Konversation, von OBEN (kein Scroll-Sprung mehr)
+    // 5) Designs durchwechseln — Theme-Swap am SELBEN Host (buttrig, kein Rebuild, kein Scroll-Sprung)
     h = renderChat(0, true, h);
     selectRow(0);
+    const sc = scroller(h);
+    if (sc) sc.scrollTo({ top: 0, behavior: 'smooth' });
     await moveCursor($('gear'));
     $('settings').classList.add('open');
     label('Design wechseln');
@@ -201,7 +234,7 @@ async function play(): Promise<void> {
       const t = THEMES.find((x) => x.id === id);
       await moveCursor(swEls[id] ?? null);
       themeId = id;
-      h = renderChat(0, true, h);
+      if (h) retheme(h, id);
       label(t?.label ?? id);
       await wait(1500);
     }
