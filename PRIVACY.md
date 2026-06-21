@@ -38,4 +38,4 @@ Richtet sich nicht gezielt an Kinder; erhebt keine personenbezogenen Daten.
 Bei Änderungen wird dieses Dokument mit neuem Datum aktualisiert.
 
 ## 8. Kontakt
-Fragen zum Datenschutz: `KONTAKT-EMAIL-HIER-EINSETZEN`
+Fragen zum Datenschutz: `deeeellloooo@gmail.com`
