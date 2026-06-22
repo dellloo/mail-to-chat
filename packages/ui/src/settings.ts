@@ -40,6 +40,12 @@ export interface ChatSettings {
    * Inline-Styles der Mail greifen wieder korrekt.
    */
   htmlSafeBg: boolean;
+  /**
+   * Verlauf aus einer einzelnen zitierenden Mail rekonstruieren: Enthält eine
+   * einzelne Gmail-Mail den zitierten "Am … schrieb …"-Verlauf, wird dieser in
+   * separate Bubbles zerlegt (nur bei sicherem Absender pro Ebene, sonst eine Bubble).
+   */
+  reconstructHistory: boolean;
   /** Skin für die GESAMTE Gmail-Oberfläche (Beta). */
   gmailSkin: {
     enabled: boolean;
@@ -84,6 +90,7 @@ export const DEFAULT_SETTINGS: ChatSettings = {
   languages: ['de', 'en', 'fr', 'es', 'it'],
   uiLanguage: 'de',
   onboarded: false,
+  reconstructHistory: true,
   chatThemeSeparate: false,
   htmlSafeBg: true,
   gmailSkin: {

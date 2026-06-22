@@ -27,6 +27,8 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
     optSig: 'Signaturen einklappen', optAtts: 'Anhänge-Galerie anzeigen',
     optDates: 'Datums-Trenner („Heute", „Gestern")',
     optHtmlSafe: 'Weißer Hintergrund für Mail-Inhalte (empfohlen bei dunklen Themes)',
+    optReconstruct: 'Zitierten Verlauf in einzelne Bubbles zerlegen',
+    reconstructHint: 'Manche Mails (z. B. Support-Antworten) enthalten den ganzen Schlagabtausch als zitierten „Am … schrieb …"-Verlauf in einer einzigen Mail. Ist das an, zerlegt Mail to Chat diesen Verlauf in separate Chat-Bubbles mit dem jeweiligen Absender – aber nur, wenn der Absender jeder Stufe sicher erkannt wird. Im Zweifel bleibt es bei einer Bubble. Aus = immer nur die eine Original-Mail anzeigen.',
     behaviorHint: 'Diese Einstellungen gelten für alle Mails in der Chat-Ansicht. Den Chat-Modus selbst schaltest du direkt in Gmail über den Schalter oben in der Leiste.',
     skinEnable: 'Komplette Gmail-Oberfläche umgestalten', skinPresets: 'Empfohlene Designs (stylen Gmail UND Chat)',
     skinAccent: 'Akzentfarbe', skinBg: 'Hintergrund', skinSurface: 'Flächen/Listen', skinText: 'Textfarbe',
@@ -41,7 +43,7 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
     hFeedback: 'Feedback & Fehler',
     feedbackBody: 'Etwas klappt nicht oder du hast eine Idee? Melde es mit einem Klick – technische Debug-Infos werden automatisch erfasst (kein Mail-Inhalt), damit ich das Problem exakt nachvollziehen kann.',
     reportBtn: '🛠️ Problem melden',
-    footer: 'Mail to Chat v1.10.1 · Alle Daten bleiben auf deinem Gerät · Open Source',
+    footer: 'Mail to Chat v1.11.0 · Alle Daten bleiben auf deinem Gerät · Open Source',
   },
   en: {
     tagline: 'Your mail. Your pace. No chaos.', badge: '100% LOCAL',
@@ -56,6 +58,8 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
     optSig: 'Collapse signatures', optAtts: 'Show attachment gallery',
     optDates: 'Date separators ("Today", "Yesterday")',
     optHtmlSafe: 'White background for mail content (recommended for dark themes)',
+    optReconstruct: 'Split quoted history into separate bubbles',
+    reconstructHint: 'Some emails (e.g. support replies) carry the whole back-and-forth as a quoted "On … wrote …" history inside a single email. When on, Mail to Chat splits that history into separate chat bubbles with each sender – but only when every level\'s sender is detected with confidence. When in doubt it stays a single bubble. Off = always show just the one original email.',
     behaviorHint: 'These settings apply to all emails in chat view. Toggle the chat mode itself directly in Gmail via the switch in the top bar.',
     skinEnable: 'Restyle the entire Gmail interface', skinPresets: 'Recommended designs (style Gmail AND chat)',
     skinAccent: 'Accent color', skinBg: 'Background', skinSurface: 'Surfaces/lists', skinText: 'Text color',
@@ -70,7 +74,7 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
     hFeedback: 'Feedback & bugs',
     feedbackBody: "Something not working or got an idea? Report it in one click – technical debug info is collected automatically (no mail content), so I can reproduce the issue exactly.",
     reportBtn: '🛠️ Report a problem',
-    footer: 'Mail to Chat v1.10.1 · All data stays on your device · Open source',
+    footer: 'Mail to Chat v1.11.0 · All data stays on your device · Open source',
   },
 };
 
@@ -313,6 +317,7 @@ function fillForm(): void {
   ($('#show-atts') as HTMLInputElement).checked = settings.showAttachments;
   ($('#date-separators') as HTMLInputElement).checked = settings.showDateSeparators;
   ($('#html-safe-bg') as HTMLInputElement).checked = settings.htmlSafeBg !== false;
+  ($('#reconstruct-history') as HTMLInputElement).checked = settings.reconstructHistory !== false;
   syncLangSeg();
   document.querySelectorAll<HTMLInputElement>('.lang').forEach((cb) => {
     cb.checked = settings.languages.includes(cb.value as ParserLanguage);
@@ -362,6 +367,7 @@ function readForm(): void {
   settings.showAttachments = ($('#show-atts') as HTMLInputElement).checked;
   settings.showDateSeparators = ($('#date-separators') as HTMLInputElement).checked;
   settings.htmlSafeBg = ($('#html-safe-bg') as HTMLInputElement).checked;
+  settings.reconstructHistory = ($('#reconstruct-history') as HTMLInputElement).checked;
   // uiLanguage wird über das Segmented Control gesetzt (eigener Click-Handler)
   settings.languages = Array.from(document.querySelectorAll<HTMLInputElement>('.lang:checked')).map(
     (cb) => cb.value as ParserLanguage,

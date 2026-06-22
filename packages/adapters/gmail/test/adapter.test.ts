@@ -1,5 +1,45 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { parseDownloadUrl, upscaleGmailThumb, fullSizeGmailThumb, getThreadId } from '../src/index';
+import type { MessageObject } from '@chatmail/core';
+import { parseDownloadUrl, upscaleGmailThumb, fullSizeGmailThumb, getThreadId, reconstructSingleMailHistory } from '../src/index';
+
+const mkMsg = (over: Partial<MessageObject> = {}): MessageObject => ({
+  sender: { name: 'X', email: 'x@y.de' },
+  bodyHtml: 'hi', bodyText: 'hi', attachments: [], isOwn: false, ...over,
+});
+
+describe('reconstructSingleMailHistory (Option A — Einzel-Mail-Historie)', () => {
+  it('rekonstruiert Bubbles bei sicherem Absender pro Ebene; neueste = echter Node', () => {
+    const older1 = mkMsg({ sender: { name: 'Hama Onlineshop', email: 's@hama.de' }, bodyText: 'logo', bodyHtml: 'logo' });
+    const older2 = mkMsg({ sender: { name: 'Lo Delle', email: 'lo@x.de' }, bodyText: 'damke', bodyHtml: 'damke', isOwn: true });
+    const top = mkMsg({ sender: { name: 'Hama Kundenservice', email: 'ks@hama.de' }, bodyText: 'danke', bodyHtml: 'danke' });
+    const out = reconstructSingleMailHistory(top, [older1, older2, top]);
+    expect(out).not.toBeNull();
+    expect(out!.length).toBe(3);
+    expect(out![2]).toBe(top); // echter Gmail-Node bleibt die neueste Bubble
+    expect(out![1]?.isOwn).toBe(true); // eigene Mail → rechte Seite
+  });
+
+  it('Failsafe: null bei unsicherem Absender (Unbekannt ohne E-Mail)', () => {
+    const bad = mkMsg({ sender: { name: 'Unbekannt' }, bodyText: 'x', bodyHtml: 'x' });
+    expect(reconstructSingleMailHistory(mkMsg(), [bad, mkMsg()])).toBeNull();
+  });
+
+  it('null ohne zitierten Verlauf (<2 Ebenen)', () => {
+    expect(reconstructSingleMailHistory(mkMsg(), [mkMsg()])).toBeNull();
+  });
+
+  it('null wenn eine ältere Ebene keinen Inhalt hat', () => {
+    const empty = mkMsg({ sender: { name: 'A', email: 'a@b.de' }, bodyText: '   ', bodyHtml: '' });
+    expect(reconstructSingleMailHistory(mkMsg(), [empty, mkMsg()])).toBeNull();
+  });
+
+  it('akzeptiert Ebene mit Name aber ohne E-Mail (sicherer Name reicht)', () => {
+    const named = mkMsg({ sender: { name: 'Marjan' }, bodyText: 'hallo', bodyHtml: 'hallo' });
+    const out = reconstructSingleMailHistory(mkMsg(), [named, mkMsg()]);
+    expect(out).not.toBeNull();
+    expect(out!.length).toBe(2);
+  });
+});
 
 describe('Gmail-Anhang-Karten', () => {
   it('parst download_url (mime:name:url - URL enthält selbst ":")', () => {

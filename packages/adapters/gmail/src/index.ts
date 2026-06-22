@@ -547,6 +547,39 @@ export function stripCrossQuotes(messages: MessageObject[]): MessageObject[] {
   });
 }
 
+/**
+ * Option A — Einzel-Mail-Historie (failsafe Zusatzpfad zu domMsgs).
+ *
+ * Liefert Gmail eine EINZIGE Mail, die den ganzen "Am … schrieb …"-Verlauf
+ * zitiert in sich trägt (z. B. ein Support-Ticket), zerlegt der Parser den Body
+ * bereits in Ebenen MIT Absender (parseMetaLine). Diese Funktion gibt diese
+ * Ebenen als mehrere Bubbles zurück — ABER nur, wenn JEDE rekonstruierte (ältere)
+ * Ebene einen sicheren Absender (E-Mail ODER echter Name, nie "Unbekannt") und
+ * Inhalt hat. Andernfalls null → der Aufrufer bleibt bei der einen echten Bubble.
+ *
+ * Redundanz: zwei unabhängige Quellen (echter Gmail-Node = `topReal` für die
+ * neueste Ebene; geparste Zitat-Kette für die älteren). Failsafe: im Zweifel
+ * (eine Ebene unsicher) wird gar nicht rekonstruiert → nie geratene Bubbles.
+ * Pure + testbar.
+ */
+export function reconstructSingleMailHistory(
+  topReal: MessageObject,
+  quoteLevels: MessageObject[],
+): MessageObject[] | null {
+  if (quoteLevels.length < 2) return null; // kein zitierter Verlauf → nichts zu tun
+  const older = quoteLevels.slice(0, -1); // neueste Ebene = topReal (echter Absender)
+  const confident = (m: MessageObject): boolean => {
+    const named = !!m.sender.name && m.sender.name.trim() !== '' && m.sender.name !== 'Unbekannt';
+    const hasSender = !!m.sender.email || named;
+    const hasContent = m.bodyText.trim().length > 0 || m.attachments.length > 0;
+    return hasSender && hasContent;
+  };
+  if (!older.every(confident)) return null;
+  // Ältere Ebenen führen KEINEN Reply-Chip (die referenzierte Mail steht jetzt
+  // als Bubble darüber) — replyTo bewusst nicht setzen.
+  return [...older, topReal];
+}
+
 function buildThreadMessages(settings: ChatSettings): MessageObject[] {
   const account = detectAccount();
   const ownEmails = [...settings.ownEmails];
@@ -571,6 +604,31 @@ function buildThreadMessages(settings: ChatSettings): MessageObject[] {
   log(`domMsgs: ${domMsgs.length} Nachrichten aus DOM-Nodes (Bubble-Quelle).`);
 
   let messages = domMsgs;
+
+  // Option A — Einzel-Mail-Historie: Gibt Gmail nur EINEN Node, dieser aber den
+  // zitierten "Am … schrieb …"-Verlauf in sich trägt, rekonstruieren wir den
+  // Verlauf in separate Bubbles (gegated: nur bei sicherem Absender pro Ebene).
+  // Abschaltbar via settings.reconstructHistory. Greift NICHT bei Mehr-Node-
+  // Threads (dort liefert Gmail die Grenzen selbst → kein Risiko für Duplikate).
+  if (settings.reconstructHistory && nodes.length === 1 && domMsgs.length === 1) {
+    const node = nodes[0] as HTMLElement;
+    const a3s = node.querySelector<HTMLElement>('div.a3s');
+    const body = (a3s && a3s.textContent?.trim()) ? a3s : node.querySelector<HTMLElement>('div.ii.gt') ?? a3s;
+    if (body?.textContent?.trim()) {
+      const levels = parseThread(body.innerHTML, {
+        ownEmails,
+        ownName: ownNames[0],
+        languages: settings.languages,
+        filterSignatures: settings.filterSignatures,
+      });
+      for (const m of levels) if (!m.isOwn) m.isOwn = isOwnSender(m.sender, ownEmails, ownNames);
+      const recon = reconstructSingleMailHistory(domMsgs[0] as MessageObject, levels);
+      if (recon) {
+        messages = recon;
+        log(`Einzel-Mail-Historie rekonstruiert: ${recon.length} Bubbles (Option A).`);
+      }
+    }
+  }
 
   // Notnagel: NUR falls keine einzige DOM-Mail auswertbar war (sehr selten) — beste
   // Zitat-Kette als Fallback, damit der Verlauf nie komplett verschwindet.
