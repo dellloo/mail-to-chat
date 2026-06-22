@@ -39,3 +39,46 @@ Bei Änderungen wird dieses Dokument mit neuem Datum aktualisiert.
 
 ## 8. Kontakt
 Fragen zum Datenschutz: `deeeellloooo@gmail.com`
+
+---
+
+# Privacy Policy — Mail to Chat
+
+_Last updated: 20 June 2026_
+
+**In short:** Mail to Chat processes everything **entirely locally in your browser**.
+No server, no tracking, no advertising. **No email content ever leaves your device**,
+and the developer receives no data whatsoever.
+
+## 1. What the extension does
+It displays open Gmail threads (`mail.google.com`) as a chat view. To do so, it reads the content
+of the currently displayed Gmail page (sender, date, message text, attachments) directly in the
+browser and renders the chat view from it — entirely on your device.
+
+## 2. What data is processed — and what is NOT
+- **Read locally (not stored, not sent):** the content of the currently open Gmail page, solely
+  for display. It is not stored, logged or transmitted.
+- **Stored locally (settings only):** via `chrome.storage`, only your settings (design/theme,
+  font size, timestamps, auto-activation, your own email addresses, per-thread preferences).
+  **Email content is not included.**
+- **Not collected:** no analytics/tracking data, no statistics, no device or location data.
+
+## 3. Sharing with third parties
+None. No backend, no transmission to the developer or third parties, no selling, no sharing.
+
+## 4. Syncing
+If your browser has its own sync enabled (e.g. Chrome Sync), only your *settings* can be synced
+between your devices — managed solely by your browser. The developer receives nothing in the process.
+
+## 5. Permissions
+- `storage` — to save your settings.
+- Access to `mail.google.com` — to read the Gmail page and render the chat view. No other sites.
+
+## 6. Children
+Not directed at children; does not collect any personal data.
+
+## 7. Changes
+If changes are made, this document will be updated with a new date.
+
+## 8. Contact
+Privacy questions: `deeeellloooo@gmail.com`
