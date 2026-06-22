@@ -14,6 +14,10 @@ import { isMetaLine } from './metalines';
 const GMAIL_NOISE_RE =
   /^(sie erhalten nicht häufig e-?mails von|you don'?t often get email from|erfahren sie, warum (dies|das) wichtig ist|learn why this is important)/i;
 
+/** Gmail-Clip-UI ("[Nachricht gekürzt]", "Vollständige Nachricht ansehen" / engl.). */
+const CLIP_NOISE_RE =
+  /^\[?\s*(nachricht gekürzt|message clipped)\s*\]?$|^(vollständige nachricht ansehen|view entire message)$/i;
+
 /**
  * Schneidet flat-text-Zitat-Historie am Ende einer Nachricht ab (Antwort-Zitate OHNE blockquote).
  * Entfernt außerdem Gmail-Hinweiszeilen. Greift bei:
@@ -22,7 +26,10 @@ const GMAIL_NOISE_RE =
  * Alles AB dem ersten Marker ist zitierter Verlauf → weg (steht ohnehin als Bubble darüber).
  */
 export function stripReplyQuote(text: string): string {
-  const lines = text.split('\n').filter((l) => !GMAIL_NOISE_RE.test(l.trim().replace(/\s+/g, ' ')));
+  const lines = text.split('\n').filter((l) => {
+    const t = l.trim().replace(/\s+/g, ' ');
+    return !GMAIL_NOISE_RE.test(t) && !CLIP_NOISE_RE.test(t);
+  });
   let cut = -1;
   for (let i = 0; i < lines.length; i++) {
     const l = (lines[i] ?? '').trim();

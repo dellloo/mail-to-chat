@@ -15,8 +15,20 @@ function getDoc(html: string): Document {
   return new DOMParser().parseFromString(html, 'text/html');
 }
 
+/** Gmails "[Nachricht gekürzt] … Vollständige Nachricht ansehen" — UI, kein Mailinhalt. */
+const CLIP_LINK_RE = /^\s*(vollständige nachricht ansehen|view entire message)\s*$/i;
+
 function sanitize(root: Element): void {
   root.querySelectorAll('script, style, link, meta, iframe, object, embed').forEach((n) => n.remove());
+  // Gmail-"Nachricht gekürzt"-Clip entfernen: der „Vollständige Nachricht ansehen"-
+  // Link (+ sein kompakter Container) ist reine Gmail-UI und leakt sonst in die Bubble.
+  root.querySelectorAll('a').forEach((a) => {
+    if (CLIP_LINK_RE.test(a.textContent ?? '')) {
+      const wrap = a.closest('div');
+      if (wrap && (wrap.textContent ?? '').trim().length < 80) wrap.remove();
+      else a.remove();
+    }
+  });
   root.querySelectorAll('*').forEach((el) => {
     for (const attr of Array.from(el.attributes)) {
       if (/^on/i.test(attr.name)) el.removeAttribute(attr.name);
@@ -214,7 +226,11 @@ function buildMessage(raw: RawMessage, opts: ParseOptions): MessageObject {
 
   // Flat-text-Zitat-Historie (Outlook-Header / "Am … schrieb …") + Gmail-Hinweiszeilen
   // abschneiden — diese Antwort-Zitate haben kein blockquote und leakten sonst in den Bubble.
+  const beforeStrip = mainText;
   mainText = stripReplyQuote(mainText);
+  // Wurde ein Text-Zitat geschnitten? Dann darf NICHT das rohe HTML gerendert werden
+  // (es enthält den zitierten Verlauf noch) → text-basiertes bodyHtml erzwingen.
+  const replyQuoteStripped = mainText.length < beforeStrip.length;
 
   let bodyText = mainText;
   let signatureHtml: string | undefined;
@@ -236,7 +252,7 @@ function buildMessage(raw: RawMessage, opts: ParseOptions): MessageObject {
   //  - Sonst: rawHtml (volles Markup), Text als Fallback.
   const bodyHtml = forwarded
     ? textBodyHtml
-    : signatureHtml
+    : signatureHtml || replyQuoteStripped
       ? textBodyHtml || rawBodyHtml
       : rawBodyHtml || textBodyHtml;
 

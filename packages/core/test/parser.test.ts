@@ -174,3 +174,30 @@ describe('Plain-Text-Thread-Parsing', () => {
     expect(best).toBeLessThan(150);
   });
 });
+
+describe('Outlook-Antwort-Zitat ohne blockquote (Live-Bug Beratung-Thread)', () => {
+  it('schneidet den zitierten Verlauf aus bodyText UND bodyHtml', () => {
+    const html =
+      '<div>Sehr geehrter Herr Delleske, vielen Dank fuer Ihre Mail.</div><div><br></div>' +
+      '<div>Von: Lo Delle &lt;lo@x.de&gt;<br>Gesendet: Montag, 22. Juni 2026 08:00<br>' +
+      'An: Beratung<br>Betreff: Test</div>' +
+      '<div>Guten Tag, hier mein urspruengliches Anliegen. Beste Gruesse Lukas</div>';
+    const msgs = parseThread(html, { languages: ['de'] });
+    const m = msgs[msgs.length - 1]!;
+    expect(m.bodyText).toContain('Sehr geehrter Herr Delleske');
+    // Der zitierte Teil darf weder im Text noch im gerenderten HTML auftauchen.
+    expect(m.bodyText).not.toMatch(/Von:|Gesendet:|Betreff:|urspruengliches Anliegen/);
+    expect(m.bodyHtml).not.toMatch(/Von:|Gesendet:|Betreff:|urspruengliches Anliegen/);
+  });
+
+  it('entfernt Gmails "Nachricht gekuerzt"-Clip aus Text und HTML', () => {
+    const html =
+      '<div>Kurzer Nachrichtentext.</div>' +
+      '<div>[Nachricht gekürzt] <a href="https://mail.google.com/x">Vollständige Nachricht ansehen</a></div>';
+    const msgs = parseThread(html, { languages: ['de'] });
+    const m = msgs[msgs.length - 1]!;
+    expect(m.bodyText).toContain('Kurzer Nachrichtentext');
+    expect(m.bodyText).not.toMatch(/gekürzt|Vollständige Nachricht/i);
+    expect(m.bodyHtml).not.toMatch(/gekürzt|Vollständige Nachricht/i);
+  });
+});
