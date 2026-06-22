@@ -8,8 +8,10 @@ export interface Sender {
 export interface Attachment {
   kind: 'image' | 'file';
   name: string;
-  /** Quelle (src/href), falls vorhanden. Bleibt lokal - wird nie nachgeladen. */
+  /** Anzeige-Quelle (Thumbnail-src/href), falls vorhanden. Bleibt lokal. */
   url?: string;
+  /** Volle Originalgröße (für „Original öffnen"), falls ableitbar. */
+  fullUrl?: string;
 }
 
 export interface MessageObject {

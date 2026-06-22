@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { parseDownloadUrl, upscaleGmailThumb, getThreadId } from '../src/index';
+import { parseDownloadUrl, upscaleGmailThumb, fullSizeGmailThumb, getThreadId } from '../src/index';
 
 describe('Gmail-Anhang-Karten', () => {
   it('parst download_url (mime:name:url - URL enthält selbst ":")', () => {
@@ -21,13 +21,24 @@ describe('Gmail-Anhang-Karten', () => {
     expect(parseDownloadUrl('')).toBeNull();
   });
 
-  it('skaliert Gmail-Thumbnails hoch (sz=w360-h240 → w1600)', () => {
-    expect(upscaleGmailThumb('https://mail.google.com/mail/u/0/?view=fimg&sz=w360-h240&attid=0.1')).toContain(
-      'sz=w1600',
-    );
-    expect(upscaleGmailThumb('https://mail.google.com/x?sz=w200')).toContain('sz=w1600');
+  it('skaliert Gmail-Thumbnails hoch — ERSETZT DEN GANZEN sz-Wert (Regressionsschutz)', () => {
+    // Realer Gmail-Anhang-sz-Wert. Der frühere Teilersatz ließ "-p-nu" stehen
+    // → "sz=w1600-p-nu" → Gmail lehnt ab (live verifiziert FAIL). Muss komplett
+    // ersetzt werden, ohne den nachfolgenden Parameter zu fressen.
+    const real = upscaleGmailThumb('https://mail.google.com/?view=fimg&sz=w360-h240-p-nu&attid=0.1');
+    expect(real).toContain('sz=w1600-h1600');
+    expect(real).not.toContain('-p-nu'); // keine Rest-Flags → wäre ungültig
+    expect(real).toContain('&attid=0.1'); // Folgeparameter unangetastet
+    expect(upscaleGmailThumb('https://mail.google.com/x?sz=w200')).toContain('sz=w1600-h1600');
     // URLs ohne sz-Parameter bleiben unverändert
     expect(upscaleGmailThumb('https://mail.google.com/x?view=fimg')).toBe('https://mail.google.com/x?view=fimg');
+  });
+
+  it('fullSizeGmailThumb liefert Originalgröße (sz=s0) für „Original öffnen"', () => {
+    const full = fullSizeGmailThumb('https://mail.google.com/?view=fimg&sz=w360-h240-p-nu&attid=0.1');
+    expect(full).toContain('sz=s0');
+    expect(full).not.toContain('-p-nu');
+    expect(full).toContain('&attid=0.1');
   });
 });
 

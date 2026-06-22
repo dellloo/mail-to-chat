@@ -196,9 +196,25 @@ export function parseDownloadUrl(downloadUrl: string): Attachment | null {
 
 const IMAGE_NAME_RE = /\.(png|jpe?g|gif|webp|heic|heif|bmp|tiff?|avif)\s*$/i;
 
-/** Gmail-Bild-Thumbnails höher auflösen (sz=w360-h240 → sz=w1600). */
+/**
+ * Gmail-Bild-Thumbnails höher auflösen.
+ *
+ * KRITISCH (live verifiziert): Gmail-Anhang-URLs nutzen `sz=w360-h240-p-nu`.
+ * Der frühere Teilersatz `([?&]sz=)w\d+(-h\d+)?` → `$1w1600` ließ die Flags
+ * `-p-nu` stehen → `sz=w1600-p-nu`, was Gmail ABLEHNT → kaputtes Thumbnail UND
+ * 500 beim Öffnen. Korrekt ist, den GESAMTEN sz-Wert zu ersetzen. Getestet:
+ *   sz=w360-h240-p-nu  → lädt (360px)
+ *   sz=w1600-p-nu      → FAIL   (alter Bug)
+ *   sz=w1600-h1600     → lädt (1600px)   ← Anzeige
+ *   sz=s0              → lädt (Originalgröße) ← „Original öffnen"
+ */
 export function upscaleGmailThumb(url: string): string {
-  return url.replace(/([?&]sz=)w\d+(-h\d+)?/, '$1w1600');
+  return url.replace(/([?&]sz=)[^&]+/, '$1w1600-h1600');
+}
+
+/** Volle Originalgröße einer Gmail-Bild-URL (für „Original öffnen"). */
+export function fullSizeGmailThumb(url: string): string {
+  return url.replace(/([?&]sz=)[^&]+/, '$1s0');
 }
 
 /**
@@ -221,7 +237,7 @@ function extractAttachmentCards(node: HTMLElement): Attachment[] {
     const att = parseDownloadUrl(card.getAttribute('download_url') ?? '');
     if (att?.kind === 'image') {
       const thumb = card.querySelector('img')?.getAttribute('src');
-      if (thumb) att.url = upscaleGmailThumb(thumb);
+      if (thumb) { att.url = upscaleGmailThumb(thumb); att.fullUrl = fullSizeGmailThumb(thumb); }
     }
     push(att);
   });
@@ -239,7 +255,7 @@ function extractAttachmentCards(node: HTMLElement): Attachment[] {
     const isImage =
       IMAGE_NAME_RE.test(name) || (!!thumb && /view=fimg|disp=thd/.test(thumb));
     if (isImage && thumb) {
-      push({ kind: 'image', name, url: upscaleGmailThumb(thumb) });
+      push({ kind: 'image', name, url: upscaleGmailThumb(thumb), fullUrl: fullSizeGmailThumb(thumb) });
     } else {
       push({ kind: 'file', name, url: href ?? thumb });
     }
@@ -252,7 +268,7 @@ function extractAttachmentCards(node: HTMLElement): Attachment[] {
     const name = img.getAttribute('alt')?.trim() || 'Bild';
     // dedupe gegen Strategie 1/2: gleiche URL-Basis überspringen
     if (out.some((a) => a.url && a.url.split('&sz=')[0] === upscaleGmailThumb(src).split('&sz=')[0])) return;
-    push({ kind: 'image', name, url: upscaleGmailThumb(src) });
+    push({ kind: 'image', name, url: upscaleGmailThumb(src), fullUrl: fullSizeGmailThumb(src) });
   });
 
   return out;

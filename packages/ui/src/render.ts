@@ -613,8 +613,8 @@ export function renderMessages(messages: MessageObject[], settings: ChatSettings
           ? `<div class="cm-atts">${m.attachments
               .map((a) =>
                 a.kind === 'image' && a.url
-                  ? `<img class="cm-att-img" src="${esc(a.url)}" alt="${esc(a.name)}" data-cm-full="${esc(a.url)}">`
-                  : `<a class="cm-att-chip" href="${a.url ? esc(a.url) : '#'}" target="_blank" rel="noopener"><span class="cm-att-name">${esc(a.name)}</span></a>`,
+                  ? `<img class="cm-att-img" src="${esc(a.url)}" alt="${esc(a.name)}" data-cm-full="${esc(a.url)}" data-cm-orig="${esc(a.fullUrl ?? a.url)}">`
+                  : `<a class="cm-att-chip" href="${a.url ? esc(a.fullUrl ?? a.url) : '#'}" target="_blank" rel="noopener"><span class="cm-att-name">${esc(a.name)}</span></a>`,
               )
               .join('')}</div>`
           : '';
@@ -656,9 +656,10 @@ function wireLightbox(shadow: ShadowRoot, settings: ChatSettings): void {
   const openLink = lb.querySelector('.cm-lb-open') as HTMLAnchorElement;
 
   const close = (): void => lb.classList.remove('open');
-  const open = (src: string, caption = ''): void => {
+  // src = Anzeige-Bild (zügig); origHref = volle Originalgröße für „Original öffnen".
+  const open = (src: string, caption = '', origHref = src): void => {
     img.src = src;
-    openLink.href = src;
+    openLink.href = origHref;
     cap.textContent = caption;
     cap.style.display = caption ? '' : 'none';
     lb.classList.add('open');
@@ -672,7 +673,8 @@ function wireLightbox(shadow: ShadowRoot, settings: ChatSettings): void {
       if (src) {
         e.preventDefault();
         e.stopPropagation();
-        open(src, target.getAttribute('alt') ?? '');
+        const orig = target.getAttribute('data-cm-orig') ?? src;
+        open(src, target.getAttribute('alt') ?? '', orig);
       }
       return;
     }
@@ -953,6 +955,36 @@ function wireQuoteCollapse(shadow: ShadowRoot, settings: ChatSettings): void {
 }
 
 /**
+ * Anhang-Bild-Sicherheitsnetz (NASA-Redundanz): Lädt ein Bild-Thumbnail trotz
+ * korrekter URL nicht (abgelaufenes Gmail-Token, offline, gecachte Stale-URL),
+ * wird das kaputte <img> durch einen sauberen Datei-Chip ersetzt — niemals ein
+ * Broken-Image-Icon. Via addEventListener statt inline onerror, da Gmails CSP
+ * inline-Handler blockiert.
+ */
+function wireAttachmentFallback(shadow: ShadowRoot, settings: ChatSettings): void {
+  const i18n = I18N[settings.uiLanguage] ?? I18N.de;
+  shadow.querySelectorAll<HTMLImageElement>('img.cm-att-img').forEach((img) => {
+    const fallback = (): void => {
+      const name = img.getAttribute('alt')?.trim() || i18n.image;
+      const href = img.getAttribute('data-cm-orig') || img.getAttribute('src') || '';
+      const chip = document.createElement(href ? 'a' : 'span');
+      chip.className = 'cm-att-chip';
+      if (href && chip instanceof HTMLAnchorElement) {
+        chip.href = href;
+        chip.target = '_blank';
+        chip.rel = 'noopener';
+      }
+      chip.innerHTML = `<span class="cm-att-name">${esc(name)}</span>`;
+      img.replaceWith(chip);
+    };
+    // Listener SYNCHRON anhängen (direkt nach innerHTML) — Bild-Loads sind async,
+    // der error feuert erst danach, wird also zuverlässig gefangen. Kein Eager-
+    // complete/naturalWidth-Check: der meldet in manchen DOM-Engines false-positive.
+    img.addEventListener('error', fallback, { once: true });
+  });
+}
+
+/**
  * Erzeugt das komplette Chat-View-Element mit Shadow DOM (Style-Isolation
  * gegen Gmail-CSS in beide Richtungen), inkl. Lightbox und optionalem Composer.
  */
@@ -976,5 +1008,6 @@ export function createChatView(
   wireContactCard(shadow, settings);
   wireLightbox(shadow, settings);
   wireQuoteCollapse(shadow, settings);
+  wireAttachmentFallback(shadow, settings);
   return host;
 }

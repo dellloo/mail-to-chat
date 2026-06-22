@@ -41,7 +41,7 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
     hFeedback: 'Feedback & Fehler',
     feedbackBody: 'Etwas klappt nicht oder du hast eine Idee? Melde es mit einem Klick – technische Debug-Infos werden automatisch erfasst (kein Mail-Inhalt), damit ich das Problem exakt nachvollziehen kann.',
     reportBtn: '🛠️ Problem melden',
-    footer: 'Mail to Chat v1.10.0 · Alle Daten bleiben auf deinem Gerät · Open Source',
+    footer: 'Mail to Chat v1.10.1 · Alle Daten bleiben auf deinem Gerät · Open Source',
   },
   en: {
     tagline: 'Your mail. Your pace. No chaos.', badge: '100% LOCAL',
@@ -70,7 +70,7 @@ const OPTIONS_I18N: Record<'de' | 'en', Record<string, string>> = {
     hFeedback: 'Feedback & bugs',
     feedbackBody: "Something not working or got an idea? Report it in one click – technical debug info is collected automatically (no mail content), so I can reproduce the issue exactly.",
     reportBtn: '🛠️ Report a problem',
-    footer: 'Mail to Chat v1.10.0 · All data stays on your device · Open source',
+    footer: 'Mail to Chat v1.10.1 · All data stays on your device · Open source',
   },
 };
 

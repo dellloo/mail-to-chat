@@ -7,9 +7,9 @@
 
 ## 1. Kontext & Stand
 
-**Produkt:** Chrome Extension (MV3) + Firefox (MV2). Monorepo: `packages/core`, `packages/ui`, `packages/adapters/gmail`, `apps/chrome-ext`, `apps/firefox-ext`. TypeScript strict, esbuild, Vitest (129 Tests).
+**Produkt:** Chrome Extension (MV3) + Firefox (MV2). Monorepo: `packages/core`, `packages/ui`, `packages/adapters/gmail`, `apps/chrome-ext`, `apps/firefox-ext`. TypeScript strict, esbuild, Vitest (131 Tests).
 
-**Aktuell stabile Version:** v1.10.0
+**Aktuell stabile Version:** v1.10.1
 
 **Was funktioniert:**
 
@@ -42,7 +42,7 @@
 **Engineering:**
 
 - Zero-Halluzination: nur implementieren was du 100% verstehst. Bei Unklarheit: Rückfrage.
-- Alle Änderungen müssen `npm run build` + `npx vitest run` (129/129) bestehen.
+- Alle Änderungen müssen `npm run build` + `npx vitest run` (131/131) bestehen.
 - Kein Refactoring ohne konkreten Grund. Stabilität > Eleganz.
 - TypeScript strict: kein `any`, kein `@ts-ignore`.
 - NASA-Redundanz: jede kritische Funktion hat mindestens zwei unabhängige Pfade.

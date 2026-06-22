@@ -80,6 +80,17 @@ describe('UI-Renderer', () => {
     expect(html).toContain('bericht.pdf');
   });
 
+  it('Bild-Anhang: fullUrl wird als data-cm-orig für „Original öffnen" gesetzt', () => {
+    const html = renderMessages(
+      [msg({ attachments: [
+        { kind: 'image', name: 'foto.jpg', url: 'https://m/g?sz=w1600-h1600', fullUrl: 'https://m/g?sz=s0' },
+      ] })],
+      DEFAULT_SETTINGS,
+    );
+    expect(html).toContain('src="https://m/g?sz=w1600-h1600"'); // Anzeige = Thumbnail
+    expect(html).toContain('data-cm-orig="https://m/g?sz=s0"'); // Öffnen = Originalgröße
+  });
+
   it('vergibt Gruppenfarben bei mehreren Gesprächspartnern', () => {
     const html = renderMessages(
       [
