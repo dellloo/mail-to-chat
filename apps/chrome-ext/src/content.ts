@@ -103,6 +103,14 @@ initGmailAdapter({
       /* Kontext weg - der Hinweis erscheint dann ggf. nochmal, unkritisch */
     }
   },
+  setSettings: (partial: Partial<ChatSettings>) => {
+    if (!contextAlive()) return;
+    try {
+      void chrome.storage.sync.set(partial);
+    } catch {
+      /* Kontext weg - Änderung gilt für diese Session evtl. nicht, unkritisch */
+    }
+  },
   openSettings: () => {
     if (!contextAlive()) {
       // Kontext tot (Extension wurde neu geladen) → Hinweis statt Crash

@@ -9,7 +9,7 @@
 
 **Produkt:** Chrome Extension (MV3) + Firefox (MV2). Monorepo: `packages/core`, `packages/ui`, `packages/adapters/gmail`, `apps/chrome-ext`, `apps/firefox-ext`. TypeScript strict, esbuild, Vitest (138 Tests).
 
-**Aktuell stabile Version:** v1.11.1
+**Aktuell stabile Version:** v1.12.0
 
 **Was funktioniert:**
 

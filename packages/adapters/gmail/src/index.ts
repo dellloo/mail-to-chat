@@ -1,5 +1,5 @@
 import { parseThread, type Attachment, type MessageObject, type Sender } from '@chatmail/core';
-import { createChatView, ICONS, openReportDialog, reportMenuLabel, type ChatSettings } from '@chatmail/ui';
+import { createChatView, ICONS, openReportDialog, reportMenuLabel, THEMES, type ChatSettings } from '@chatmail/ui';
 import { applySkin, updateSkinPageClass } from './skin';
 
 export { applySkin, buildSkinCss } from './skin';
@@ -26,6 +26,8 @@ export interface AdapterDeps {
   setAutoActivate?: (on: boolean) => void;
   /** Markiert den einmaligen Onboarding-Hinweis als gezeigt. */
   setOnboarded?: () => void;
+  /** Schreibt einzelne Einstellungen (Schnell-Panel) → löst Live-Re-Render aus. */
+  setSettings?: (partial: Partial<ChatSettings>) => void;
 }
 
 /** Ringpuffer: letzte 50 Log-Einträge für window.__chatmailDebug.log */
@@ -1382,6 +1384,7 @@ const TB_ID = 'chatmail-toggle-tb';
 const GROUP_ID = 'chatmail-tb-group';
 const REPORT_ID = 'chatmail-report-btn';
 const ONBOARD_ID = 'chatmail-onboarding';
+const QPANEL_ID = 'chatmail-quick-panel';
 
 /**
  * Berechnet die linke Position der Gruppe: rechts neben Gmails Icon-Gruppe.
@@ -1394,6 +1397,132 @@ function positionGroup(group: HTMLElement, toolbar: HTMLElement): void {
   const anchor = firstChild?.getBoundingClientRect();
   const left = anchor && anchor.width > 0 ? anchor.right - base.left + 12 : 8;
   group.style.left = `${Math.max(8, Math.round(left))}px`;
+}
+
+/**
+ * Schnell-Einstellungs-Panel (Hybrid): Klick aufs Zahnrad öffnet ein kompaktes
+ * Overlay DIREKT in Gmail mit den häufigsten Optionen (Design-Swatches + Toggles)
+ * und einem Link zur vollen Einstellungsseite — kein Tab-Wechsel. Schreibt via
+ * deps.setSettings → chrome.storage → Live-Re-Render. Reines isoliertes DOM
+ * (Inline-Styles); Outside-Click/Esc schließt; zweiter Zahnrad-Klick toggelt zu.
+ */
+function showQuickPanel(anchor: HTMLElement, deps: AdapterDeps): void {
+  if (document.getElementById(QPANEL_ID)) { document.getElementById(QPANEL_ID)?.remove(); return; }
+  const lang: 'de' | 'en' = (navigator.language || '').toLowerCase().startsWith('de') ? 'de' : 'en';
+  const T = lang === 'de'
+    ? { title: 'Schnelleinstellungen', design: 'Design', sig: 'Signaturen einklappen', atts: 'Anhänge-Galerie', dates: 'Datums-Trenner', recon: 'Verlauf in Bubbles zerlegen', all: 'Alle Einstellungen …' }
+    : { title: 'Quick settings', design: 'Design', sig: 'Collapse signatures', atts: 'Attachment gallery', dates: 'Date separators', recon: 'Split history into bubbles', all: 'All settings …' };
+
+  void deps.getSettings().then((s) => {
+    document.getElementById(QPANEL_ID)?.remove();
+    if (!document.getElementById('chatmail-qp-css')) {
+      const st = document.createElement('style');
+      st.id = 'chatmail-qp-css';
+      st.textContent = `@keyframes cmQpIn{from{opacity:0;transform:translateY(-6px) scale(0.98)}to{opacity:1;transform:none}}#${QPANEL_ID} button:active{transform:scale(0.97)}`;
+      document.head.appendChild(st);
+    }
+
+    const panel = document.createElement('div');
+    panel.id = QPANEL_ID;
+    panel.style.cssText = [
+      'position:fixed', 'z-index:2147483646', 'width:290px', 'box-sizing:border-box',
+      'background:#fff', 'color:#16181d', 'border-radius:14px',
+      'box-shadow:0 16px 48px rgba(0,0,0,0.32)', 'border:1px solid rgba(0,0,0,0.08)',
+      'padding:14px 15px 13px', 'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
+      'animation:cmQpIn 0.18s cubic-bezier(0.22,1,0.36,1)',
+    ].join(';');
+
+    const head = document.createElement('div');
+    head.style.cssText = 'font-weight:700;font-size:14px;margin-bottom:11px';
+    head.textContent = T.title;
+    panel.appendChild(head);
+
+    const dlabel = document.createElement('div');
+    dlabel.style.cssText = 'font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#8a909c;margin:0 0 8px';
+    dlabel.textContent = T.design;
+    panel.appendChild(dlabel);
+    const sw = document.createElement('div');
+    sw.style.cssText = 'display:flex;flex-wrap:wrap;gap:7px;margin-bottom:6px';
+    THEMES.filter((t) => !t.minimal).forEach((t) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.title = t.label;
+      const active = s.themeId === t.id;
+      b.style.cssText = [
+        'width:30px', 'height:30px', 'border-radius:8px', 'cursor:pointer', 'flex-shrink:0',
+        `border:2px solid ${active ? '#e6b400' : 'rgba(0,0,0,0.12)'}`,
+        'overflow:hidden', 'padding:0', 'position:relative', `background:${t.background}`,
+      ].join(';');
+      b.innerHTML =
+        `<span style="position:absolute;left:3px;bottom:4px;width:13px;height:7px;border-radius:4px;background:${t.otherBubble}"></span>` +
+        `<span style="position:absolute;right:3px;top:4px;width:13px;height:7px;border-radius:4px;background:${t.ownBubble}"></span>`;
+      b.addEventListener('click', () => {
+        deps.setSettings?.({ themeId: t.id, chatThemeSeparate: true });
+        sw.querySelectorAll('button').forEach((x) => (x.style.borderColor = 'rgba(0,0,0,0.12)'));
+        b.style.borderColor = '#e6b400';
+      });
+      sw.appendChild(b);
+    });
+    panel.appendChild(sw);
+
+    const sep = document.createElement('div');
+    sep.style.cssText = 'height:1px;background:rgba(0,0,0,0.07);margin:10px 0 4px';
+    panel.appendChild(sep);
+
+    const addToggle = (label: string, val: boolean, onChange: (v: boolean) => void): void => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0';
+      const lab = document.createElement('span');
+      lab.style.cssText = 'font-size:13px';
+      lab.textContent = label;
+      const swt = document.createElement('button');
+      swt.type = 'button';
+      swt.style.cssText = 'position:relative;width:36px;height:20px;border:none;border-radius:10px;cursor:pointer;flex-shrink:0;transition:background 0.18s;padding:0';
+      const thumb = document.createElement('span');
+      thumb.style.cssText = 'position:absolute;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.35);transition:left 0.18s';
+      swt.appendChild(thumb);
+      let on = val;
+      const paint = (): void => { swt.style.background = on ? '#e6b400' : 'rgba(128,128,128,0.35)'; thumb.style.left = on ? '18px' : '2px'; };
+      paint();
+      swt.addEventListener('click', () => { on = !on; paint(); onChange(on); });
+      row.appendChild(lab); row.appendChild(swt);
+      panel.appendChild(row);
+    };
+    addToggle(T.sig, s.filterSignatures !== false, (v) => deps.setSettings?.({ filterSignatures: v }));
+    addToggle(T.atts, s.showAttachments !== false, (v) => deps.setSettings?.({ showAttachments: v }));
+    addToggle(T.dates, s.showDateSeparators !== false, (v) => deps.setSettings?.({ showDateSeparators: v }));
+    addToggle(T.recon, s.reconstructHistory !== false, (v) => deps.setSettings?.({ reconstructHistory: v }));
+
+    const close = (): void => {
+      panel.remove();
+      document.removeEventListener('click', onDoc, true);
+      document.removeEventListener('keydown', onKey, true);
+    };
+    function onDoc(e: MouseEvent): void {
+      const tgt = e.target as Node;
+      if (!panel.contains(tgt) && tgt !== anchor && !anchor.contains(tgt)) close();
+    }
+    function onKey(e: KeyboardEvent): void { if (e.key === 'Escape') close(); }
+
+    const all = document.createElement('button');
+    all.type = 'button';
+    all.textContent = T.all;
+    all.style.cssText = 'margin-top:11px;width:100%;border:1px solid rgba(0,0,0,0.1);background:#f4f5f7;color:#16181d;font-family:inherit;font-size:12.5px;font-weight:600;border-radius:9px;padding:9px;cursor:pointer';
+    all.addEventListener('click', () => { close(); deps.openSettings?.(); });
+    panel.appendChild(all);
+
+    document.body.appendChild(panel);
+    const r = anchor.getBoundingClientRect();
+    const pr = panel.getBoundingClientRect();
+    const left = Math.max(8, Math.min(r.right - pr.width, window.innerWidth - pr.width - 8));
+    panel.style.left = `${Math.round(left)}px`;
+    panel.style.top = `${Math.round(Math.min(r.bottom + 8, window.innerHeight - pr.height - 8))}px`;
+
+    setTimeout(() => {
+      document.addEventListener('click', onDoc, true);
+      document.addEventListener('keydown', onKey, true);
+    }, 0);
+  });
 }
 
 /**
@@ -1581,7 +1710,7 @@ function injectToolbarButton(deps: AdapterDeps): void {
       ].join(';');
       gear.addEventListener('mouseenter', () => (gear.style.background = 'rgba(128,128,128,0.28)'));
       gear.addEventListener('mouseleave', () => (gear.style.background = 'rgba(128,128,128,0.16)'));
-      gear.addEventListener('click', () => deps.openSettings?.());
+      gear.addEventListener('click', () => showQuickPanel(gear, deps));
       grp.appendChild(gear);
     }
     // Dezente BETA-Markierung: signalisiert Entwicklungszustand, ohne zu stören.
@@ -1913,7 +2042,7 @@ export function initGmailAdapter(deps: AdapterDeps): void {
   // Script-Instanz im DOM - deren Klick-Listener sind verwaist. Ohne Aufraeumen
   // wuerde diese Instanz die Injektion ueberspringen (ID existiert ja schon)
   // und der Nutzer klickt ins Leere. Also: alle Reste entfernen, frisch setzen.
-  for (const id of [BTN_ID, GROUP_ID, TB_ID, GEAR_ID, REPORT_ID, ONBOARD_ID, 'chatmail-reply-ctx', 'chatmail-ctx-menu']) {
+  for (const id of [BTN_ID, GROUP_ID, TB_ID, GEAR_ID, REPORT_ID, ONBOARD_ID, QPANEL_ID, 'chatmail-reply-ctx', 'chatmail-ctx-menu']) {
     const orphan = document.getElementById(id);
     if (orphan) {
       orphan.remove();
